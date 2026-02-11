@@ -18,23 +18,25 @@ const Login = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            const response = await api.post('/auth/login', formData);
-            const { token, user } = response.data;
+            const response = await api.post('/login', formData);
+            const { token, sponsor } = response.data;
 
-            if (user.role !== 'sponsor') {
-                toast.error('Access Denied: Only Sponsors allowed.');
-                setLoading(false);
-                return;
+            if (!sponsor || !sponsor.isApproved) {
+                // Note: Controller already checks isApproved but good to double check or handle pending status if 403
             }
 
             localStorage.setItem('token', token);
-            localStorage.setItem('user', JSON.stringify(user));
+            localStorage.setItem('user', JSON.stringify(sponsor)); // Saving as 'user' for compatibility or 'sponsor'
 
             toast.success('Login Successful!');
             navigate('/dashboard');
         } catch (error) {
             console.error(error);
-            toast.error(error.response?.data?.message || 'Login failed. Please check credentials.');
+            if (error.response?.status === 403 && error.response?.data?.status === 'pending_approval') {
+                toast.error('Account pending approval. Please contact admin.');
+            } else {
+                toast.error(error.response?.data?.error || 'Login failed. Please check credentials.');
+            }
         } finally {
             setLoading(false);
         }

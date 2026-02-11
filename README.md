@@ -1,16 +1,49 @@
-# React + Vite
+# Sponsor Panel
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A dedicated portal for vehicle sponsors to manage their fleet and earnings.
 
-Currently, two official plugins are available:
+## Project Structure
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+This project is organized as a monorepo:
 
-## React Compiler
+*   **`frontend/`**: The React + Vite application for the Sponsor Dashboard.
+*   **`backend/`**: The Express + Node.js API server for processing data.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Getting Started
 
-## Expanding the ESLint configuration
+### 1. Backend Setup
+Navigate to the backend directory:
+```bash
+cd backend
+```
+Install dependencies:
+```bash
+npm install
+```
+Configure environment variables:
+- Rename `.env.example` to `.env`
+- Add your Supabase URL, Keys, and JWT Secret.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Start the server:
+```bash
+npm run dev
+```
+The server will run on `http://localhost:3005`.
+
+### 2. Frontend Setup
+Open a new terminal and navigate to the frontend directory:
+```bash
+cd frontend
+```
+Install dependencies:
+```bash
+npm install
+```
+Start the application:
+```bash
+npm run dev
+```
+The application will open at `http://localhost:5173`.
+
+## Authentication
+This panel uses a separate authentication system for Sponsors. Sponsors register and log in independently from the main RentHub customer platform.

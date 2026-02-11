@@ -28,7 +28,7 @@ const Register = () => {
         }
         setLoading(true);
         try {
-            await api.post('/register/sponsor', {
+            await api.post('/register', {
                 ...formData
             });
             toast.success('Registration successful! Please login.');
