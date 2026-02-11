@@ -1,5 +1,5 @@
 const { uploadToSupabase } = require('../utils/supabaseStorage');
-const SupabaseDB = require('../models/supabaseDB');
+const SponsorModel = require('../models/sponsorModel');
 const SUPABASE_BUCKET = process.env.SUPABASE_BUCKET || 'uploads';
 
 exports.addBike = async (req, res) => {
@@ -28,28 +28,29 @@ exports.addBike = async (req, res) => {
 
         const [imageUrl, rcUrl, insuranceUrl, pucUrl] = await Promise.all(uploadPromises);
 
-        // Prepare vehicle data
+        // Prepare vehicle data for staging table
+        // Matches the structure used in RentHub's addVehicle
         const vehicleData = {
             name,
             registration_number: bikeNumber,
             model,
             year: parseInt(year),
-            price_per_hour: parseFloat(pricePerHour),
-            image: imageUrl,
+            price: parseFloat(pricePerHour), // Standardize to 'price'
+            image_url: imageUrl,            // Standardize to 'image_url'
             rc_url: rcUrl,
             insurance_url: insuranceUrl,
             puc_url: pucUrl,
-            sponsor_id: userId, // References sponsors table
-            is_available: true,
-            is_approved: false, // Pending admin approval
-            type: 'bike'
+            sponsor_id: userId,
+            is_available: false,
+            is_approved: false,
+            type: 'bike' // Hardcoded for this route, but generalized model supports others
         };
 
-        const newBike = await SupabaseDB.addBike(vehicleData);
+        const newRequest = await SponsorModel.addSponsorVehicle(vehicleData);
 
         res.status(201).json({
             message: 'Vehicle submitted for approval',
-            bike: newBike
+            request: newRequest
         });
 
     } catch (error) {
@@ -61,7 +62,7 @@ exports.addBike = async (req, res) => {
 exports.getMyBikes = async (req, res) => {
     try {
         const userId = req.user.id;
-        const bikes = await SupabaseDB.getSponsorBikes(userId);
+        const bikes = await SponsorModel.getSponsorVehicles(userId);
         res.json({ bikes });
     } catch (error) {
         console.error('Error fetching bikes:', error);

@@ -1,4 +1,4 @@
-const SupabaseDB = require('../models/supabaseDB');
+const SponsorModel = require('../models/sponsorModel');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
@@ -13,7 +13,7 @@ exports.registerSponsor = async (req, res) => {
         } = req.body;
 
         // Check if sponsor already exists
-        const existingSponsor = await SupabaseDB.getSponsorByEmail(email);
+        const existingSponsor = await SponsorModel.getSponsorByEmail(email);
         if (existingSponsor) {
             return res.status(400).json({ error: 'Email already registered as sponsor' });
         }
@@ -37,7 +37,7 @@ exports.registerSponsor = async (req, res) => {
             is_blocked: false
         };
 
-        await SupabaseDB.createSponsorAccount(sponsorData);
+        await SponsorModel.createSponsorAccount(sponsorData);
 
         res.status(201).json({
             message: 'Sponsor registration successful. You can now login.',
@@ -58,7 +58,7 @@ exports.loginSponsor = async (req, res) => {
         console.log('🔍 Sponsor login attempt for email:', email);
 
         // Get sponsor from sponsors table
-        const sponsor = await SupabaseDB.getSponsorByEmail(email);
+        const sponsor = await SponsorModel.getSponsorByEmail(email);
 
         if (!sponsor) {
             console.log('❌ Sponsor not found');
@@ -119,7 +119,7 @@ exports.loginSponsor = async (req, res) => {
 exports.getSponsorProfile = async (req, res) => {
     try {
         const sponsorId = req.user.id; // From JWT middleware
-        const sponsor = await SupabaseDB.getSponsorById(sponsorId);
+        const sponsor = await SponsorModel.getSponsorById(sponsorId);
 
         if (!sponsor) {
             return res.status(404).json({ error: 'Sponsor not found' });
@@ -158,7 +158,7 @@ exports.updateBankDetails = async (req, res) => {
             address: address
         };
 
-        const updated = await SupabaseDB.updateSponsor(sponsorId, updateData);
+        const updated = await SponsorModel.updateSponsor(sponsorId, updateData);
 
         res.json({
             success: true,

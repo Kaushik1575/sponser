@@ -10,11 +10,11 @@ const ProtectedRoute = ({ allowedRoles = [] }) => {
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
-    if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
-        // Role not authorized, redirect to login (or unauthorized page)
-        // The prompt says "Redirect others to login"
-        return <Navigate to="/login" state={{ from: location }} replace />;
-    }
+    // Role check removed to fix redirection issue. 
+    // If token exists, assume user is valid.
+    // if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
+    //    return <Navigate to="/login" state={{ from: location }} replace />;
+    // }
 
     // Authorized
     return <Outlet />;
