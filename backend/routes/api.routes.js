@@ -13,14 +13,15 @@ const uploadFiles = upload.fields([
     { name: 'puc', maxCount: 1 }
 ]);
 
-// Auth Routes
+// Auth Routes (no /sponsor prefix for these)
 router.post('/register', authController.registerSponsor);
 router.post('/login', authController.loginSponsor);
-router.get('/profile', verifyToken, authController.getSponsorProfile);
-router.put('/update-bank-details', verifyToken, authController.updateBankDetails);
 
-// Sponsor Vehicle Routes
-router.post('/add-bike', verifyToken, uploadFiles, sponsorController.addBike);
-router.get('/my-bikes', verifyToken, sponsorController.getMyBikes);
+// Sponsor Routes (with /sponsor prefix)
+router.get('/sponsor/profile', verifyToken, authController.getSponsorProfile);
+router.put('/sponsor/update-bank-details', verifyToken, authController.updateBankDetails);
+router.get('/sponsor/dashboard', verifyToken, sponsorController.getDashboard);
+router.post('/sponsor/add-bike', verifyToken, uploadFiles, sponsorController.addBike);
+router.get('/sponsor/my-bikes', verifyToken, sponsorController.getMyBikes);
 
 module.exports = router;

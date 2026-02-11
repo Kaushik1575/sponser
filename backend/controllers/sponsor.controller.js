@@ -69,3 +69,30 @@ exports.getMyBikes = async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch bikes' });
     }
 };
+
+exports.getDashboard = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // Get sponsor's vehicles
+        const vehicles = await SponsorModel.getSponsorVehicles(userId);
+
+        // Calculate stats
+        const totalVehicles = vehicles.length;
+        const approvedVehicles = vehicles.filter(v => v.status === 'approved').length;
+        const pendingVehicles = vehicles.filter(v => v.status === 'pending').length;
+        const rejectedVehicles = vehicles.filter(v => v.status === 'rejected').length;
+
+        res.json({
+            totalVehicles,
+            approvedVehicles,
+            pendingVehicles,
+            rejectedVehicles,
+            totalRevenue: 0, // Placeholder - can be calculated from bookings later
+            recentVehicles: vehicles.slice(0, 5)
+        });
+    } catch (error) {
+        console.error('Error fetching dashboard:', error);
+        res.status(500).json({ error: 'Failed to fetch dashboard data' });
+    }
+};
