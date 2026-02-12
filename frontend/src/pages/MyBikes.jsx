@@ -38,7 +38,8 @@ const MyBikes = () => {
         const fetchBikes = async () => {
             try {
                 const response = await api.get('/sponsor/my-bikes');
-                setBikes(response.data);
+                // Backend returns { bikes: [...] }, so we need to access response.data.bikes
+                setBikes(response.data.bikes || []);
             } catch (error) {
                 console.error(error);
                 // Fallback to mock data
@@ -52,20 +53,27 @@ const MyBikes = () => {
         fetchBikes();
     }, []);
 
-    const toggleAvailability = async (id, currentStatus) => {
+    const toggleAvailability = async (id, currentStatus, type) => {
         try {
+            const statusToSet = !currentStatus;
+
             // Optimistic update
             setBikes(bikes.map(bike =>
-                bike._id === id ? { ...bike, isAvailable: !currentStatus } : bike
+                (bike._id === id || bike.id === id) ? { ...bike, isAvailable: statusToSet, is_available: statusToSet } : bike
             ));
-            await api.patch(`/sponsor/bikes/${id}/availability`, { isAvailable: !currentStatus });
+
+            await api.patch(`/sponsor/bikes/${id}/availability`, {
+                isAvailable: statusToSet,
+                type: type
+            });
+
             toast.success('Availability updated');
         } catch (error) {
             console.error(error);
             toast.error('Failed to update availability');
             // Revert
             setBikes(bikes.map(bike =>
-                bike._id === id ? { ...bike, isAvailable: currentStatus } : bike
+                (bike._id === id || bike.id === id) ? { ...bike, isAvailable: currentStatus, is_available: currentStatus } : bike
             ));
         }
     };
@@ -87,15 +95,19 @@ const MyBikes = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {bikes.map((bike) => (
-                    <div key={bike._id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all group">
+                    <div key={bike._id || bike.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all group">
                         <div className="relative h-48 bg-gray-100 overflow-hidden">
-                            <img src={bike.image || "https://placehold.co/600x400?text=No+Image"} alt={bike.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                            <img
+                                src={bike.image || bike.image_url || "https://placehold.co/600x400?text=No+Image"}
+                                alt={bike.name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            />
                             <div className="absolute top-3 right-3">
-                                <span className={`px-2 py-1 rounded-full text-xs font-semibold uppercase tracking-wider ${bike.approval_status === 'approved' ? 'bg-green-100 text-green-700' :
-                                        bike.approval_status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                                            'bg-red-100 text-red-700'
+                                <span className={`px-2 py-1 rounded-full text-xs font-semibold uppercase tracking-wider ${(bike.status === 'approved' || bike.approval_status === 'approved') ? 'bg-green-100 text-green-700' :
+                                    (bike.status === 'rejected' || bike.approval_status === 'rejected') ? 'bg-red-100 text-red-700' :
+                                        'bg-yellow-100 text-yellow-700'
                                     }`}>
-                                    {bike.approval_status}
+                                    {bike.status || bike.approval_status || 'Pending'}
                                 </span>
                             </div>
                         </div>
@@ -103,28 +115,44 @@ const MyBikes = () => {
                         <div className="p-5">
                             <div className="flex justify-between items-start mb-2">
                                 <h3 className="text-lg font-bold text-gray-800 truncate" title={bike.name}>{bike.name}</h3>
-                                {/* Toggle Switch */}
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" checked={bike.isAvailable} onChange={() => toggleAvailability(bike._id, bike.isAvailable)} className="sr-only peer" />
-                                    <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none ring-0 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
-                                </label>
+                                {/* Toggle Switch - Only for approved vehicles */}
+                                {(bike.status === 'approved' || bike.approval_status === 'approved') && (
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={bike.isAvailable || bike.is_available}
+                                            onChange={() => toggleAvailability(bike._id || bike.id, bike.isAvailable || bike.is_available, bike.type || 'bike')}
+                                            className="sr-only peer"
+                                        />
+                                        <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none ring-0 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
+                                    </label>
+                                )}
                             </div>
-                            <p className="text-sm text-gray-500 mb-4 font-mono">{bike.bikeNumber}</p>
+                            <p className="text-sm text-gray-500 mb-4 font-mono">{bike.bikeNumber || bike.registration_number}</p>
 
-                            <div className="grid grid-cols-3 gap-2 py-3 border-t border-b border-gray-100 mb-4">
-                                <div className="text-center">
-                                    <p className="text-xs text-gray-400 mb-1 flex justify-center"><Calendar className="w-3 h-3" /></p>
-                                    <p className="text-sm font-semibold text-gray-700">{bike.totalBookings}</p>
+                            {/* Stats - Only for approved vehicles */}
+                            {(bike.status === 'approved' || bike.approval_status === 'approved') ? (
+                                <div className="grid grid-cols-3 gap-2 py-3 border-t border-b border-gray-100 mb-4">
+                                    <div className="text-center">
+                                        <p className="text-xs text-gray-400 mb-1 flex justify-center"><Calendar className="w-3 h-3" /></p>
+                                        <p className="text-sm font-semibold text-gray-700">{bike.totalBookings || 0}</p>
+                                    </div>
+                                    <div className="text-center border-l border-r border-gray-100">
+                                        <p className="text-xs text-gray-400 mb-1 flex justify-center"><Clock className="w-3 h-3" /></p>
+                                        <p className="text-sm font-semibold text-gray-700">{bike.totalRideHours || 0}h</p>
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-xs text-gray-400 mb-1 flex justify-center"><DollarSign className="w-3 h-3" /></p>
+                                        <p className="text-sm font-semibold text-green-600">₹{bike.totalRevenue || 0}</p>
+                                    </div>
                                 </div>
-                                <div className="text-center border-l border-r border-gray-100">
-                                    <p className="text-xs text-gray-400 mb-1 flex justify-center"><Clock className="w-3 h-3" /></p>
-                                    <p className="text-sm font-semibold text-gray-700">{bike.totalRideHours}h</p>
+                            ) : (
+                                <div className="py-3 border-t border-b border-gray-100 mb-4 bg-gray-50 rounded-lg text-center">
+                                    <p className="text-xs text-gray-500 italic">
+                                        {bike.status === 'rejected' ? 'Action required' : 'Review in progress'}
+                                    </p>
                                 </div>
-                                <div className="text-center">
-                                    <p className="text-xs text-gray-400 mb-1 flex justify-center"><DollarSign className="w-3 h-3" /></p>
-                                    <p className="text-sm font-semibold text-green-600">₹{bike.totalRevenue}</p>
-                                </div>
-                            </div>
+                            )}
 
                             <div className="flex gap-2">
                                 <button className="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-600 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1">

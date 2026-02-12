@@ -6,7 +6,7 @@ exports.addBike = async (req, res) => {
     try {
         const userId = req.user.id; // From middleware
         // Form Data
-        const { name, bikeNumber, model, year, pricePerHour } = req.body;
+        const { name, bikeNumber, model, year, pricePerHour, type } = req.body;
 
         // Files from memory storage (multer)
         const imageFile = req.files['image'] ? req.files['image'][0] : null;
@@ -14,8 +14,8 @@ exports.addBike = async (req, res) => {
         const insuranceFile = req.files['insurance'] ? req.files['insurance'][0] : null;
         const pucFile = req.files['puc'] ? req.files['puc'][0] : null;
 
-        if (!name || !bikeNumber || !pricePerHour) {
-            return res.status(400).json({ error: 'Missing required fields' });
+        if (!name || !bikeNumber || !pricePerHour || !type) {
+            return res.status(400).json({ error: 'Missing required fields (including vehicle type)' });
         }
 
         // Upload files to Supabase Storage
@@ -43,7 +43,7 @@ exports.addBike = async (req, res) => {
             sponsor_id: userId,
             is_available: false,
             is_approved: false,
-            type: 'bike' // Hardcoded for this route, but generalized model supports others
+            type: type // Use provided type
         };
 
         const newRequest = await SponsorModel.addSponsorVehicle(vehicleData);
@@ -83,16 +83,95 @@ exports.getDashboard = async (req, res) => {
         const pendingVehicles = vehicles.filter(v => v.status === 'pending').length;
         const rejectedVehicles = vehicles.filter(v => v.status === 'rejected').length;
 
+        // Fetch real revenue stats
+        const { totalBookings, totalRideHours, totalRevenue } = await SponsorModel.getSponsorStats(userId);
+
         res.json({
+            totalBikes: totalVehicles,
             totalVehicles,
             approvedVehicles,
             pendingVehicles,
             rejectedVehicles,
-            totalRevenue: 0, // Placeholder - can be calculated from bookings later
+            totalBookings,
+            totalRideHours,
+            totalRevenue,
+            netEarnings: totalRevenue * 0.85, // Assuming 15% platform fee deducted? Or just return revenue
             recentVehicles: vehicles.slice(0, 5)
         });
     } catch (error) {
         console.error('Error fetching dashboard:', error);
         res.status(500).json({ error: 'Failed to fetch dashboard data' });
+    }
+};
+
+exports.toggleAvailability = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { isAvailable, type } = req.body;
+
+        if (!type || !['bike', 'car', 'scooty'].includes(type)) {
+            return res.status(400).json({ error: 'Valid vehicle type (bike/car/scooty) is required' });
+        }
+
+        const vehicle = await SponsorModel.toggleVehicleAvailability(id, type, isAvailable);
+        res.json({ message: 'Availability updated', vehicle });
+
+    } catch (error) {
+        console.error('Error toggling availability:', error);
+        res.status(500).json({ error: 'Failed to update availability' });
+    }
+};
+
+exports.getRevenue = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const stats = await SponsorModel.getDetailedRevenueStats(userId);
+
+        // 70% to Sponsor, 30% to Platform
+        const gross = stats.grossRevenue || 0;
+        const commission = gross * 0.30;
+        const net = gross - commission; // 70%
+
+        res.json({
+            grossRevenue: gross,
+            commission: commission,
+            netEarnings: net,
+            transactions: stats.transactions || [],
+            vehicleStats: stats.vehicleStats || []
+        });
+    } catch (error) {
+        console.error('Error fetching revenue:', error);
+        res.status(500).json({ error: 'Failed to fetch revenue stats' });
+    }
+};
+
+exports.getFleetData = async (req, res) => {
+    try {
+        const vehicles = await SponsorModel.getAllVehiclesAdmin();
+        const sponsors = await SponsorModel.getAllSponsorsAdmin();
+        res.json({ vehicles, sponsors });
+    } catch (e) {
+        console.error('Error fetching fleet data:', e);
+        res.status(500).json({ error: 'Failed to fetch fleet data' });
+    }
+};
+
+exports.assignFleet = async (req, res) => {
+    try {
+        const { sponsorId, assignments } = req.body; // assignments: [{id, type}]
+
+        if (!sponsorId || !assignments || !Array.isArray(assignments)) {
+            return res.status(400).json({ error: 'Invalid data' });
+        }
+
+        let count = 0;
+        for (const item of assignments) {
+            await SponsorModel.assignVehicleToSponsor(item.id, item.type, sponsorId);
+            count++;
+        }
+        res.json({ success: true, message: `Assigned ${count} vehicles successfully` });
+    } catch (e) {
+        console.error('Error assigning fleet:', e);
+        res.status(500).json({ error: 'Failed to assign vehicles' });
     }
 };

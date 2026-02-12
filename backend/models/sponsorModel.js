@@ -89,26 +89,86 @@ class SponsorModel {
             supabase.from('scooty').select('*').eq('sponsor_id', sponsorId)
         ]);
 
-        // Fetch PENDING requests
-        const { data: requests } = await supabase
+        // Fetch PENDING/REJECTED requests
+        const { data: requests, error } = await supabase
             .from('sponsor_vehicle_requests')
             .select('*')
-            .eq('sponsor_id', sponsorId)
-            .eq('status', 'pending');
+            .eq('sponsor_id', sponsorId);
+
+        if (error) {
+            console.error("Error fetching requests:", error);
+            return [];
+        }
 
         const liveVehicles = [
-            ...(bikes.data || []).map(v => ({ ...v, type: 'bike', status: 'Approved' })),
-            ...(cars.data || []).map(v => ({ ...v, type: 'car', status: 'Approved' })),
-            ...(scooty.data || []).map(v => ({ ...v, type: 'scooty', status: 'Approved' }))
+            ...(bikes.data || []).map(v => ({
+                ...v,
+                type: 'bike',
+                status: 'approved',
+                approval_status: 'approved',
+                image: v.image_url,
+                bikeNumber: v.registration_number
+            })),
+            ...(cars.data || []).map(v => ({
+                ...v,
+                type: 'car',
+                status: 'approved',
+                approval_status: 'approved',
+                image: v.image_url,
+                bikeNumber: v.registration_number
+            })),
+            ...(scooty.data || []).map(v => ({
+                ...v,
+                type: 'scooty',
+                status: 'approved',
+                approval_status: 'approved',
+                image: v.image_url,
+                bikeNumber: v.registration_number
+            }))
         ];
 
-        const pendingVehicles = (requests || []).map(r => ({
-            ...r.vehicle_details,
-            id: r.id, // Use request ID for tracking
-            status: 'Pending Approval'
+        // Filter out requests that are already approved (since they are in liveVehicles)
+        // Or better yet, just show pending/rejected ones from requests table
+        const pendingOrRejected = (requests || []).filter(r => r.status !== 'approved').map(r => ({
+            id: r.id,
+            _id: r.id,
+            name: r.name,
+            model: r.model,
+            price: r.price,
+            year: r.year,
+            image: r.image_url,
+            image_url: r.image_url,
+            bikeNumber: r.registration_number,
+            registration_number: r.registration_number,
+            status: r.status,
+            approval_status: r.status, // pending or rejected
+            vehicleType: r.vehicle_type,
+            is_available: false,
+            totalBookings: 0,
+            totalRideHours: 0,
+            totalRevenue: 0
         }));
 
-        return [...liveVehicles, ...pendingVehicles];
+
+        return [...liveVehicles, ...pendingOrRejected];
+    }
+
+    static async toggleVehicleAvailability(id, type, isAvailable) {
+        let tableName;
+        if (type === 'bike') tableName = 'bikes';
+        else if (type === 'car') tableName = 'cars';
+        else if (type === 'scooty') tableName = 'scooty';
+        else throw new Error('Invalid vehicle type');
+
+        const { data, error } = await supabase
+            .from(tableName)
+            .update({ is_available: isAvailable })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
     }
 
     // ============================================
@@ -128,7 +188,13 @@ class SponsorModel {
             id: r.id, // Request ID
             sponsor_id: r.sponsor_id,
             vehicleType: r.vehicle_type,
-            ...r.vehicle_details, // Spread the details (name, price, etc)
+            name: r.name,
+            model: r.model,
+            price: r.price,
+            year: r.year,
+            image: r.image_url,
+            image_url: r.image_url,
+            // ...spread other fields if needed
             sponsors: r.sponsors
         }));
     }
@@ -146,7 +212,16 @@ class SponsorModel {
 
         // 2. Prepare data for main table
         const vehicleData = {
-            ...request.vehicle_details,
+            name: request.name,
+            registration_number: request.registration_number,
+            model: request.model,
+            year: request.year,
+            price: request.price,
+            image_url: request.image_url,
+            rc_url: request.rc_url,
+            insurance_url: request.insurance_url,
+            puc_url: request.puc_url,
+            sponsor_id: request.sponsor_id,
             is_approved: true,
             is_available: true
         };
@@ -159,7 +234,7 @@ class SponsorModel {
         else throw new Error('Invalid vehicle type');
 
         // 3. Insert into main table
-        const { data: string, error: insertError } = await supabase
+        const { data: newVehicle, error: insertError } = await supabase
             .from(tableName)
             .insert([vehicleData])
             .select()
@@ -173,7 +248,7 @@ class SponsorModel {
             .update({ status: 'approved' })
             .eq('id', requestId);
 
-        return request;
+        return newVehicle;
     }
 
     static async rejectVehicle(requestId) {
@@ -181,6 +256,209 @@ class SponsorModel {
             .from('sponsor_vehicle_requests')
             .update({ status: 'rejected' })
             .eq('id', requestId);
+
+        if (error) throw error;
+        return true;
+    }
+    // ============================================
+    // STATS OPERATIONS
+    // ============================================
+
+    static async getSponsorStats(sponsorId) {
+        // 1. Get all vehicles for this sponsor
+        const vehicles = await this.getSponsorVehicles(sponsorId);
+
+        if (!vehicles || vehicles.length === 0) {
+            return { totalRevenue: 0, totalBookings: 0, totalRideHours: 0 };
+        }
+
+        const vehicleIds = vehicles.map(v => v.id);
+        const myVehicleMap = new Set(vehicles.map(v => `${v.id}-${v.type}`)); // e.g., "10-bike"
+
+        // 2. Fetch all bookings involving these vehicle IDs
+        // We select potential type columns to match correctly
+        const { data: bookings, error } = await supabase
+            .from('bookings')
+            .select('vehicle_id, vehicle_type, total_amount, status, duration')
+            .in('vehicle_id', vehicleIds);
+
+        if (error) {
+            console.error('Error fetching booking stats:', error);
+            return { totalRevenue: 0, totalBookings: 0, totalRideHours: 0 };
+        }
+
+        let totalRevenue = 0;
+        let totalBookings = 0;
+        let totalRideHours = 0;
+
+        // 3. Aggregate
+        bookings.forEach(b => {
+            // Determine booking vehicle type
+            const bType = b.vehicle_type || b.vehicleType;
+            // Construct key to match specific vehicle (ID + Type)
+            const key = bType ? `${b.vehicle_id}-${bType}` : null;
+
+            // Match condition: 
+            // 1. Key matches (Existing type) 
+            // 2. OR fallback: booking has no type, but ID in list (Legacy/Simple logic)
+            if ((key && myVehicleMap.has(key)) || (!bType && vehicleIds.includes(b.vehicle_id))) {
+
+                // Count Bookings (All non-cancelled?? Or just confirmed/completed)
+                // Usually "Total Bookings" includes active ones.
+                totalBookings++;
+
+                // Count Hours (Valid rides)
+                if (!['cancelled', 'rejected', 'pending'].includes(b.status)) {
+                    totalRideHours += (parseFloat(b.duration) || 0);
+                }
+
+                // Count Revenue (Completed/Ended only)
+                if (['completed', 'ride_completed', 'ride_ended', 'payment_success'].includes(b.status)) {
+                    totalRevenue += (parseFloat(b.total_amount) || 0);
+                }
+            }
+        });
+
+        return { totalRevenue, totalBookings, totalRideHours };
+    }
+
+    static async getDetailedRevenueStats(sponsorId) {
+        // 1. Get vehicles
+        const vehicles = await this.getSponsorVehicles(sponsorId);
+        if (!vehicles.length) return { gross: 0, transactions: [], vehicleStats: [] };
+
+        // Map for vehicle stats using composite key "id-type"
+        const vehicleMap = new Map();
+        vehicles.forEach(v => {
+            vehicleMap.set(`${v.id}-${v.type}`, {
+                name: v.name,
+                regNo: v.registration_number || v.bikeNumber,
+                image: v.image_url || v.image,
+                type: v.type, // Store type
+                week: 0, month: 0, total: 0, hours: 0
+            });
+        });
+
+        const vehicleIds = vehicles.map(v => v.id);
+
+        // 2. Fetch bookings
+        const { data: bookings, error } = await supabase
+            .from('bookings')
+            .select('*')
+            .in('vehicle_id', vehicleIds)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Error fetching revenue details:', error);
+            return { gross: 0, transactions: [], vehicleStats: [] };
+        }
+
+        let grossRevenue = 0;
+        const transactions = [];
+
+        const now = new Date();
+        const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+        bookings.forEach(b => {
+            // Filter for Completed earnings
+            if (!['completed', 'ride_completed', 'ride_ended', 'payment_success'].includes(b.status)) return;
+
+            const amount = parseFloat(b.total_amount) || 0;
+            const bookingDate = new Date(b.created_at || b.booking_date || now);
+
+            // Determine Key
+            const bType = b.vehicle_type || b.vehicleType;
+
+            // Attempt to find vehicle stat
+            let vStat = null;
+            if (bType) {
+                vStat = vehicleMap.get(`${b.vehicle_id}-${bType}`);
+            } else {
+                // Fallback: Try all types
+                vStat = vehicleMap.get(`${b.vehicle_id}-bike`) ||
+                    vehicleMap.get(`${b.vehicle_id}-car`) ||
+                    vehicleMap.get(`${b.vehicle_id}-scooty`);
+            }
+
+            if (vStat) {
+                // Counts towards revenue
+                grossRevenue += amount;
+                vStat.total += amount;
+                vStat.hours += (parseFloat(b.duration) || 0);
+
+                if (bookingDate >= oneWeekAgo) vStat.week += amount;
+                if (bookingDate >= oneMonthAgo) vStat.month += amount;
+
+                // Add to Transaction Log
+                transactions.push({
+                    id: b.id,
+                    date: bookingDate.toLocaleDateString(),
+                    amount: amount,
+                    type: 'Credit',
+                    description: `Rent: ${vStat.name} (${vStat.regNo || b.vehicle_id})`
+                });
+            }
+        });
+
+        return {
+            grossRevenue,
+            transactions,
+            vehicleStats: Array.from(vehicleMap.values())
+        };
+    }
+
+    static async getAllVehiclesAdmin() {
+        const [bikes, cars, scooty] = await Promise.all([
+            supabase.from('bikes').select('*'),
+            supabase.from('cars').select('*'),
+            supabase.from('scooty').select('*')
+        ]);
+
+        const mapVehicle = (v, type) => ({
+            id: v.id,
+            name: v.name,
+            registration_number: v.registration_number,
+            image_url: v.image_url,
+            sponsor_id: v.sponsor_id,
+            type: type,
+            price: v.price
+        });
+
+        return [
+            ...(bikes.data || []).map(v => mapVehicle(v, 'bike')),
+            ...(cars.data || []).map(v => mapVehicle(v, 'car')),
+            ...(scooty.data || []).map(v => mapVehicle(v, 'scooty'))
+        ];
+    }
+
+    static async getAllSponsorsAdmin() {
+        const { data, error } = await supabase
+            .from('sponsors')
+            .select('id, full_name, email');
+
+        if (error) {
+            console.error('Error fetching sponsors:', error);
+            return [];
+        }
+        return data;
+    }
+
+    static async assignVehicleToSponsor(vehicleId, type, sponsorId) {
+        let tableName;
+        if (type === 'bike') tableName = 'bikes';
+        else if (type === 'car') tableName = 'cars';
+        else if (type === 'scooty') tableName = 'scooty';
+        else throw new Error('Invalid vehicle type');
+
+        // Assign to sponsor AND verify it is active/approved
+        const { error } = await supabase
+            .from(tableName)
+            .update({
+                sponsor_id: sponsorId,
+                is_available: true
+            })
+            .eq('id', vehicleId);
 
         if (error) throw error;
         return true;

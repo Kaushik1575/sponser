@@ -8,7 +8,8 @@ const Revenue = () => {
         grossRevenue: 0,
         commission: 0,
         netEarnings: 0,
-        transactions: []
+        transactions: [],
+        vehicleStats: []
     });
     const [loading, setLoading] = useState(true);
 
@@ -89,7 +90,7 @@ const Revenue = () => {
 
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
                     <div className="flex items-center justify-between mb-4 text-gray-500">
-                        <span className="text-sm font-medium">Platform Commission (10%)</span>
+                        <span className="text-sm font-medium">Platform Commission (30%)</span>
                         <TrendingDown className="w-5 h-5 text-red-500" />
                     </div>
                     <h3 className="text-3xl font-bold text-gray-800 mb-1">- ₹{revenueData.commission.toLocaleString()}</h3>
@@ -103,6 +104,65 @@ const Revenue = () => {
                     </div>
                     <h3 className="text-3xl font-bold mb-1">₹{revenueData.netEarnings.toLocaleString()}</h3>
                     <p className="text-xs opacity-70">Available for payout</p>
+                </div>
+            </div>
+
+            {/* Vehicle Performance Breakdown */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
+                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                    <h3 className="font-semibold text-gray-700">Vehicle Performance Breakdown</h3>
+                    <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded-full font-bold">Live Data</span>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead>
+                            <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
+                                <th className="px-6 py-4">Vehicle</th>
+                                <th className="px-6 py-4 text-right">This Week</th>
+                                <th className="px-6 py-4 text-right">This Month</th>
+                                <th className="px-6 py-4 text-right">Total Hours</th>
+                                <th className="px-6 py-4 text-right">Total Revenue</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {(revenueData.vehicleStats || []).length === 0 ? (
+                                <tr>
+                                    <td colSpan="5" className="px-6 py-8 text-center text-gray-400 font-medium">No vehicle data available</td>
+                                </tr>
+                            ) : (
+                                (revenueData.vehicleStats || []).map((v, idx) => (
+                                    <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden shrink-0 border border-gray-200">
+                                                    {v.image ? (
+                                                        <img src={v.image} alt={v.name} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-gray-300">
+                                                            <TrendingUp size={16} />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    <p className="font-semibold text-gray-800 text-sm">{v.name}</p>
+                                                    <p className="text-xs text-gray-500 font-mono">{v.regNo || 'N/A'}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-sm text-gray-700">₹{(v.week || 0).toLocaleString()}</td>
+                                        <td className="px-6 py-4 text-right text-sm text-gray-700">₹{(v.month || 0).toLocaleString()}</td>
+                                        <td className="px-6 py-4 text-right text-sm text-gray-700">
+                                            <div className="flex items-center justify-end gap-1">
+                                                <Clock size={12} className="text-gray-400" />
+                                                {v.hours} hrs
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-right font-bold text-green-600">₹{(v.total || 0).toLocaleString()}</td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
                 </div>
             </div>
 

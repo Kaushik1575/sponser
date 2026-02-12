@@ -6,13 +6,14 @@ import toast from 'react-hot-toast';
 
 const Dashboard = () => {
     const [stats, setStats] = useState({
-        totalBikes: 0,
+        totalVehicles: 0,
         totalBookings: 0,
         totalRideHours: 0,
         totalRevenue: 0,
         netEarnings: 0
     });
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     // Mock data for charts if API fails or during development
     const mockRevenueData = [
@@ -48,18 +49,29 @@ const Dashboard = () => {
         const fetchDashboardData = async () => {
             try {
                 const response = await api.get('/sponsor/dashboard');
-                setStats(response.data);
+                const data = response.data;
+
+                // Map backend response to frontend state structure
+                setStats({
+                    totalVehicles: data.totalVehicles || 0,
+                    totalBookings: data.totalBookings || 0,
+                    totalRideHours: data.totalRideHours || 0,
+                    totalRevenue: data.totalRevenue || 0,
+                    netEarnings: data.netEarnings || (data.totalRevenue * 0.9) || 0
+                });
+                setError(null);
             } catch (error) {
                 console.error("Failed to fetch dashboard data:", error);
+                setError(error.message);
                 // Fallback to mock data for demo purposes if backend isn't ready
                 setStats({
-                    totalBikes: 5,
-                    totalBookings: 124,
-                    totalRideHours: 450,
-                    totalRevenue: 12500,
-                    netEarnings: 11250 // 10% commission deduction
+                    totalVehicles: 0,
+                    totalBookings: 0,
+                    totalRideHours: 0,
+                    totalRevenue: 0,
+                    netEarnings: 0
                 });
-                toast.error("Using mock data (Start backend API)");
+                toast.error("Failed to load dashboard data");
             } finally {
                 setLoading(false);
             }
@@ -82,10 +94,34 @@ const Dashboard = () => {
 
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard title="Total Revenue" value={`₹${stats.totalRevenue.toLocaleString()}`} icon={DollarSign} color="text-green-600" bg="bg-green-100" />
-                <StatCard title="Net Earnings" value={`₹${stats.netEarnings.toLocaleString()}`} icon={CreditCard} color="text-brand-600" bg="bg-brand-100" />
-                <StatCard title="Total Bookings" value={stats.totalBookings} icon={Calendar} color="text-purple-600" bg="bg-purple-100" />
-                <StatCard title="Total Ride Hours" value={`${stats.totalRideHours} hrs`} icon={Clock} color="text-orange-600" bg="bg-orange-100" />
+                <StatCard
+                    title="Total Vehicles"
+                    value={stats.totalVehicles || 0}
+                    icon={Truck}
+                    color="text-brand-600"
+                    bg="bg-brand-50"
+                />
+                <StatCard
+                    title="Total Revenue"
+                    value={`₹${(stats.totalRevenue || 0).toLocaleString()}`}
+                    icon={DollarSign}
+                    color="text-green-600"
+                    bg="bg-green-100"
+                />
+                <StatCard
+                    title="Net Earnings"
+                    value={`₹${(stats.netEarnings || 0).toLocaleString()}`}
+                    icon={CreditCard}
+                    color="text-brand-600"
+                    bg="bg-brand-100"
+                />
+                <StatCard
+                    title="Total Bookings"
+                    value={stats.totalBookings || 0}
+                    icon={Calendar}
+                    color="text-purple-600"
+                    bg="bg-purple-100"
+                />
             </div>
 
             {/* Charts Section */}
@@ -129,7 +165,7 @@ const Dashboard = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 lg:col-span-1">
-                    <h2 className="text-lg font-semibold mb-4 text-gray-700">Most Rented Bikes</h2>
+                    <h2 className="text-lg font-semibold mb-4 text-gray-700">Most Rented Vehicles</h2>
                     <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
@@ -169,11 +205,11 @@ const Dashboard = () => {
                         </div>
                         <div className="p-4 bg-orange-50 border-l-4 border-orange-500 rounded-r-lg">
                             <p className="text-sm text-orange-800 font-medium">🔧 Maintenance Alert</p>
-                            <p className="text-gray-600 text-sm mt-1">Bike <span className="font-semibold">Yamaha R15 (KA-01-AB-1234)</span> has crossed 200 ride hours. Consider scheduling a service check.</p>
+                            <p className="text-gray-600 text-sm mt-1">Vehicle <span className="font-semibold">Yamaha R15 (KA-01-AB-1234)</span> has crossed 200 ride hours. Consider scheduling a service check.</p>
                         </div>
                         <div className="p-4 bg-purple-50 border-l-4 border-purple-500 rounded-r-lg">
                             <p className="text-sm text-purple-800 font-medium">📅 Booking Pattern</p>
-                            <p className="text-gray-600 text-sm mt-1">Your bikes are booked <span className="font-bold">40% more</span> on weekends. Consider adjusting pricing for Saturday and Sunday.</p>
+                            <p className="text-gray-600 text-sm mt-1">Your vehicles are booked <span className="font-bold">40% more</span> on weekends. Consider adjusting pricing for Saturday and Sunday.</p>
                         </div>
                     </div>
                 </div>

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-import { Upload, Bike, FileText, CheckCircle, X } from 'lucide-react';
+import { Upload, Bike, FileText, CheckCircle, Car, Truck, ChevronLeft, Image as ImageIcon } from 'lucide-react';
 
 const AddBike = () => {
     const navigate = useNavigate();
@@ -12,6 +12,7 @@ const AddBike = () => {
         model: '',
         year: '',
         pricePerHour: '',
+        type: 'bike'
     });
     const [files, setFiles] = useState({
         image: null,
@@ -20,13 +21,35 @@ const AddBike = () => {
         puc: null,
     });
     const [loading, setLoading] = useState(false);
+    const [dragActive, setDragActive] = useState(false);
 
     const handleInputChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
     const handleFileChange = (e) => {
-        setFiles({ ...files, [e.target.name]: e.target.files[0] });
+        if (e.target.files && e.target.files[0]) {
+            setFiles({ ...files, [e.target.name]: e.target.files[0] });
+        }
+    };
+
+    const handleDrag = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.type === "dragenter" || e.type === "dragover") {
+            setDragActive(true);
+        } else if (e.type === "dragleave") {
+            setDragActive(false);
+        }
+    };
+
+    const handleDrop = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragActive(false);
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            setFiles({ ...files, image: e.dataTransfer.files[0] });
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -43,144 +66,292 @@ const AddBike = () => {
             await api.post('/sponsor/add-bike', data, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
-            toast.success('Bike added successfully! Waiting for approval.');
+            toast.success('Vehicle added successfully! Waiting for approval.');
             navigate('/my-bikes');
         } catch (error) {
             console.error(error);
-            toast.error(error.response?.data?.message || 'Failed to add bike.');
+            toast.error(error.response?.data?.message || 'Failed to add vehicle.');
         } finally {
             setLoading(false);
         }
     };
 
+    const getIcon = () => {
+        if (formData.type === 'car') return <Car className="w-6 h-6 text-white" />;
+        // if (formData.type === 'scooty') return <Bike className="w-6 h-6 text-white" />;
+        return <Bike className="w-6 h-6 text-white" />;
+    };
+
     return (
-        <div className="p-6 bg-gray-50 min-h-screen pb-20">
-            <div className="max-w-3xl mx-auto">
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-white pb-20 px-4 sm:px-6 lg:px-8 font-sans">
+            <div className="max-w-4xl mx-auto pt-10">
+
+                {/* Header Section */}
                 <div className="flex items-center justify-between mb-8">
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-800">Add New Bike</h1>
-                        <p className="text-gray-500 mt-1">Submit your vehicle details for verification.</p>
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={() => navigate('/my-bikes')}
+                            className="p-2 rounded-full bg-white shadow-sm hover:shadow-md text-gray-600 hover:text-indigo-600 transition-all duration-300 group"
+                        >
+                            <ChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+                        </button>
+                        <div>
+                            <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600">
+                                Add New Vehicle
+                            </h1>
+                            <p className="text-gray-500 mt-1 text-sm font-medium">Wait for approval & start earning</p>
+                        </div>
                     </div>
-                    <button
-                        type="button"
-                        onClick={() => navigate('/my-bikes')}
-                        className="text-gray-500 hover:text-gray-700 font-medium px-4 py-2 rounded-lg hover:bg-white transition-colors"
-                    >
-                        Cancel
-                    </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 space-y-8">
+                <form onSubmit={handleSubmit} className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
 
-                    {/* Bike Details Section */}
-                    <div>
-                        <h2 className="text-lg font-semibold text-gray-700 border-b pb-4 mb-6 flex items-center gap-2">
-                            <Bike className="w-5 h-5 text-brand-600" />
-                            Vehicle Information
-                        </h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-700">Bike Name (Make)</label>
-                                <input type="text" name="name" placeholder="e.g. Royal Enfield Classic 350" required onChange={handleInputChange} className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none" />
+                    {/* Progress / Decoration Bar */}
+                    <div className="h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+
+                    <div className="p-8 md:p-10 space-y-10">
+
+                        {/* Section 1: Vehicle Details */}
+                        <div className="animate-fade-in-up">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="p-3 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-200">
+                                    {getIcon()}
+                                </div>
+                                <h2 className="text-xl font-bold text-gray-800">Vehicle Details</h2>
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-700">Registration Number</label>
-                                <input type="text" name="bikeNumber" placeholder="e.g. KA-01-AB-1234" required onChange={handleInputChange} className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none uppercase" />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-700">Model</label>
-                                <input type="text" name="model" placeholder="e.g. 2023 ABS" required onChange={handleInputChange} className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none" />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-700">Year</label>
-                                <input type="number" name="year" placeholder="e.g. 2023" required onChange={handleInputChange} className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none" />
-                            </div>
-                            <div className="space-y-2 md:col-span-2">
-                                <label className="text-sm font-medium text-gray-700">Price Per Hour (₹)</label>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium">₹</span>
-                                    <input type="number" name="pricePerHour" placeholder="0.00" required onChange={handleInputChange} className="w-full pl-8 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none" />
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                {/* Type Selector */}
+                                <div className="space-y-2 group">
+                                    <label className="text-sm font-semibold text-gray-700 tracking-wide group-hover:text-indigo-600 transition-colors">Vehicle Type</label>
+                                    <div className="relative">
+                                        <select
+                                            name="type"
+                                            value={formData.type}
+                                            onChange={handleInputChange}
+                                            className="w-full pl-5 pr-10 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-gray-700 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium cursor-pointer hover:bg-gray-100"
+                                        >
+                                            <option value="bike">Motorcycle / Bike</option>
+                                            <option value="car">Car / SUV</option>
+                                            <option value="scooty">Scooter / Scooty</option>
+                                        </select>
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
+                                            <ChevronLeft className="w-4 h-4 -rotate-90" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Vehicle Name */}
+                                <div className="space-y-2 group">
+                                    <label className="text-sm font-semibold text-gray-700 tracking-wide group-hover:text-indigo-600 transition-colors">Vehicle Model Name</label>
+                                    <input
+                                        type="text"
+                                        name="name"
+                                        placeholder={formData.type === 'car' ? "e.g. Maruti Swift Dzire" : "e.g. Royal Enfield Classic 350"}
+                                        required
+                                        onChange={handleInputChange}
+                                        className="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-medium placeholder-gray-400"
+                                    />
+                                </div>
+
+                                {/* Registration Number */}
+                                <div className="space-y-2 group">
+                                    <label className="text-sm font-semibold text-gray-700 tracking-wide group-hover:text-indigo-600 transition-colors">Registration Number</label>
+                                    <input
+                                        type="text"
+                                        name="bikeNumber"
+                                        placeholder="KA-01-AB-1234"
+                                        required
+                                        onChange={handleInputChange}
+                                        className="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-medium uppercase tracking-widest placeholder-gray-400"
+                                    />
+                                </div>
+
+                                {/* Stats Grid */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2 group">
+                                        <label className="text-sm font-semibold text-gray-700 tracking-wide group-hover:text-indigo-600 transition-colors">Year</label>
+                                        <input
+                                            type="number"
+                                            name="year"
+                                            placeholder="2024"
+                                            required
+                                            onChange={handleInputChange}
+                                            className="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-medium"
+                                        />
+                                    </div>
+                                    <div className="space-y-2 group">
+                                        <label className="text-sm font-semibold text-gray-700 tracking-wide group-hover:text-indigo-600 transition-colors">Model Variant</label>
+                                        <input
+                                            type="text"
+                                            name="model"
+                                            placeholder="ABS / Std"
+                                            required
+                                            onChange={handleInputChange}
+                                            className="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-medium"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Price */}
+                                <div className="md:col-span-2 space-y-2 group">
+                                    <label className="text-sm font-semibold text-gray-700 tracking-wide group-hover:text-indigo-600 transition-colors">Hourly Rental Price (₹)</label>
+                                    <div className="relative group-focus-within:text-indigo-600 text-gray-400 transition-colors">
+                                        <div className="absolute left-5 top-1/2 -translate-y-1/2 font-bold text-lg">₹</div>
+                                        <input
+                                            type="number"
+                                            name="pricePerHour"
+                                            placeholder="0.00"
+                                            required
+                                            onChange={handleInputChange}
+                                            className="w-full pl-10 pr-5 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-bold text-lg text-gray-800"
+                                        />
+                                        <div className="absolute right-5 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-md">
+                                            / hr
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    {/* Documents Upload Section */}
-                    <div>
-                        <h2 className="text-lg font-semibold text-gray-700 border-b pb-4 mb-6 flex items-center gap-2">
-                            <FileText className="w-5 h-5 text-brand-600" />
-                            Documents & Photos
-                        </h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <hr className="border-gray-100" />
 
-                            {/* Bike Image */}
-                            <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Bike Photo</label>
-                                <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer relative">
-                                    <input type="file" name="image" accept="image/*" required onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                                    <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                                    <p className="text-sm text-gray-500 font-medium">{files.image ? files.image.name : 'Click to upload bike photo'}</p>
-                                    <p className="text-xs text-gray-400 mt-1">PNG, JPG up to 5MB</p>
+                        {/* Section 2: Uploads */}
+                        <div className="animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="p-3 bg-pink-500 rounded-xl shadow-lg shadow-pink-200">
+                                    <ImageIcon className="w-6 h-6 text-white" />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-bold text-gray-800">Photos & Documents</h2>
+                                    <p className="text-sm text-gray-500">Upload clear images for faster approval</p>
                                 </div>
                             </div>
 
-                            {/* RC Document */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">RC Document</label>
-                                <div className={`border border-gray-200 rounded-lg p-3 flex items-center justify-between ${files.rc ? 'bg-green-50 border-green-200' : 'bg-gray-50'}`}>
-                                    <span className="text-sm text-gray-500 truncate max-w-[150px]">{files.rc ? files.rc.name : 'No file chosen'}</span>
-                                    <label className="cursor-pointer bg-white border border-gray-300 rounded px-3 py-1 text-xs font-medium hover:bg-gray-50 transition-colors">
-                                        Browse
-                                        <input type="file" name="rc" accept=".pdf,image/*" required onChange={handleFileChange} className="hidden" />
-                                    </label>
-                                </div>
-                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 
-                            {/* Insurance */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Insurance Policy</label>
-                                <div className={`border border-gray-200 rounded-lg p-3 flex items-center justify-between ${files.insurance ? 'bg-green-50 border-green-200' : 'bg-gray-50'}`}>
-                                    <span className="text-sm text-gray-500 truncate max-w-[150px]">{files.insurance ? files.insurance.name : 'No file chosen'}</span>
-                                    <label className="cursor-pointer bg-white border border-gray-300 rounded px-3 py-1 text-xs font-medium hover:bg-gray-50 transition-colors">
-                                        Browse
-                                        <input type="file" name="insurance" accept=".pdf,image/*" required onChange={handleFileChange} className="hidden" />
-                                    </label>
-                                </div>
-                            </div>
+                                {/* Image Upload - Featured */}
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-semibold text-gray-700 mb-3">Main Vehicle Photo</label>
+                                    <div
+                                        onDragEnter={handleDrag}
+                                        onDragLeave={handleDrag}
+                                        onDragOver={handleDrag}
+                                        onDrop={handleDrop}
+                                        className={`relative border-2 border-dashed rounded-3xl p-8 flex flex-col items-center justify-center transition-all duration-300 group cursor-pointer overflow-hidden
+                                            ${dragActive ? 'border-indigo-500 bg-indigo-50 scale-[1.01]' : 'border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-indigo-400'}
+                                            ${files.image ? 'border-green-500 bg-green-50' : ''}
+                                        `}
+                                    >
+                                        <input
+                                            type="file"
+                                            name="image"
+                                            accept="image/*"
+                                            required
+                                            onChange={handleFileChange}
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                        />
 
-                            {/* PUC */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">PUC Certificate</label>
-                                <div className={`border border-gray-200 rounded-lg p-3 flex items-center justify-between ${files.puc ? 'bg-green-50 border-green-200' : 'bg-gray-50'}`}>
-                                    <span className="text-sm text-gray-500 truncate max-w-[150px]">{files.puc ? files.puc.name : 'No file chosen'}</span>
-                                    <label className="cursor-pointer bg-white border border-gray-300 rounded px-3 py-1 text-xs font-medium hover:bg-gray-50 transition-colors">
-                                        Browse
-                                        <input type="file" name="puc" accept=".pdf,image/*" required onChange={handleFileChange} className="hidden" />
-                                    </label>
-                                </div>
-                            </div>
+                                        {files.image ? (
+                                            <div className="text-center z-0 relative animate-fade-in">
+                                                <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-3">
+                                                    <CheckCircle className="w-8 h-8 text-green-600" />
+                                                </div>
+                                                <p className="text-sm font-bold text-green-700">{files.image.name}</p>
+                                                <p className="text-xs text-green-600 mt-1">Ready to upload</p>
+                                            </div>
+                                        ) : (
+                                            <div className="text-center z-0 group-hover:-translate-y-1 transition-transform duration-300">
+                                                <div className="mx-auto w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                                                    <Upload className="w-8 h-8 text-indigo-600" />
+                                                </div>
+                                                <p className="text-base font-semibold text-gray-700">Click or drag photo here</p>
+                                                <p className="text-xs text-gray-400 mt-2">Supports JPG, PNG, WEBP (Max 5MB)</p>
+                                            </div>
+                                        )}
 
+                                        {/* Decoration */}
+                                        <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-bl from-indigo-100 to-transparent rounded-bl-full -mr-10 -mt-10 opacity-50 pointer-events-none"></div>
+                                        <div className="absolute bottom-0 left-0 w-20 h-20 bg-gradient-to-tr from-purple-100 to-transparent rounded-tr-full -ml-10 -mb-10 opacity-50 pointer-events-none"></div>
+                                    </div>
+                                </div>
+
+                                {/* Document Uploads (Compact) */}
+                                {['rc', 'insurance', 'puc'].map((docKey) => (
+                                    <div key={docKey} className="group">
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2 capitalize">{docKey === 'rc' ? 'RC Document' : docKey === 'puc' ? 'PUC Certificate' : 'Insurance Policy'}</label>
+                                        <div className={`
+                                            relative flex items-center gap-4 p-4 rounded-2xl border transition-all duration-300
+                                            ${files[docKey]
+                                                ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 shadow-sm'
+                                                : 'bg-white border-gray-200 hover:border-indigo-300 hover:shadow-md'
+                                            }
+                                        `}>
+                                            <div className={`p-2.5 rounded-xl ${files[docKey] ? 'bg-green-200 text-green-700' : 'bg-gray-100 text-gray-500 group-hover:bg-indigo-100 group-hover:text-indigo-600'} transition-colors`}>
+                                                <FileText className="w-5 h-5" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className={`text-sm font-medium truncate ${files[docKey] ? 'text-green-800' : 'text-gray-600'}`}>
+                                                    {files[docKey] ? files[docKey].name : `Upload ${docKey.toUpperCase()}`}
+                                                </p>
+                                                {!files[docKey] && <p className="text-xs text-gray-400">PDF or Image</p>}
+                                            </div>
+
+                                            {files[docKey] ? (
+                                                <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
+                                            ) : (
+                                                <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                                                    Browse
+                                                </span>
+                                            )}
+
+                                            <input
+                                                type="file"
+                                                name={docKey}
+                                                accept=".pdf,image/*"
+                                                required
+                                                onChange={handleFileChange}
+                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+
+                            </div>
                         </div>
-                    </div>
 
-                    <div className="pt-4 flex justify-end gap-4">
-                        <button
-                            type="button"
-                            onClick={() => navigate('/my-bikes')}
-                            className="px-6 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="px-6 py-2.5 rounded-lg bg-gradient-to-r from-brand-600 to-cyan-500 text-white font-medium hover:shadow-lg transition-all transform active:scale-95 disabled:opacity-70 flex items-center gap-2"
-                        >
-                            {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <CheckCircle className="w-5 h-5" />}
-                            {loading ? 'Submitting...' : 'Submit Bike'}
-                        </button>
-                    </div>
+                        {/* Submit Actions */}
+                        <div className="pt-6 flex items-center justify-end gap-4 border-t border-gray-100">
+                            <button
+                                type="button"
+                                onClick={() => navigate('/my-bikes')}
+                                className="px-6 py-3.5 rounded-xl text-gray-600 font-semibold hover:bg-gray-50 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className={`
+                                    relative px-8 py-3.5 rounded-xl text-white font-bold shadow-lg shadow-indigo-500/30 overflow-hidden group
+                                    ${loading ? 'bg-indigo-400 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:shadow-indigo-500/50 hover:scale-[1.02]'}
+                                    transition-all duration-300
+                                `}
+                            >
+                                <span className={`flex items-center gap-2 relative z-10 ${loading ? 'opacity-0' : 'opacity-100'}`}>
+                                    Submit Vehicle <CheckCircle className="w-5 h-5" />
+                                </span>
+                                {loading && (
+                                    <div className="absolute inset-0 flex items-center justify-center z-20">
+                                        <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                    </div>
+                                )}
+                                {/* Shine Effect */}
+                                <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12"></div>
+                            </button>
+                        </div>
 
+                    </div>
                 </form>
             </div>
         </div>

@@ -23,5 +23,11 @@ router.put('/sponsor/update-bank-details', verifyToken, authController.updateBan
 router.get('/sponsor/dashboard', verifyToken, sponsorController.getDashboard);
 router.post('/sponsor/add-bike', verifyToken, uploadFiles, sponsorController.addBike);
 router.get('/sponsor/my-bikes', verifyToken, sponsorController.getMyBikes);
+router.patch('/sponsor/bikes/:id/availability', verifyToken, sponsorController.toggleAvailability);
+router.get('/sponsor/revenue', verifyToken, sponsorController.getRevenue);
+
+// Fleet Management (Admin Setup)
+router.get('/admin/fleet', sponsorController.getFleetData);
+router.post('/admin/assign-fleet', sponsorController.assignFleet);
 
 module.exports = router;
