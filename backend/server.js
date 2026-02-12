@@ -27,4 +27,8 @@ app.get('/', (req, res) => {
 // Start Server
 app.listen(PORT, () => {
     console.log(`✅ Sponsor Backend Server running on port ${PORT}`);
+
+    // Start auto-repair service
+    require('./services/auto-repair');
 });
+

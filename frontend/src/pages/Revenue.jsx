@@ -12,6 +12,13 @@ const Revenue = () => {
     const [selectedMonth, setSelectedMonth] = useState(-1); // Default to Whole Year
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
+    const formatRideTime = (hours) => {
+        if (!hours || hours === 0) return '0h 0min';
+        const h = Math.floor(hours);
+        const m = Math.round((hours - h) * 60);
+        return `${h}h ${m}min`;
+    };
+
     useEffect(() => {
         const fetchRevenue = async () => {
             try {
@@ -371,7 +378,7 @@ const Revenue = () => {
                                                     {v.count}
                                                 </td>
                                                 <td className="px-6 py-4 text-right text-sm text-gray-600 font-medium">
-                                                    {v.hours ? v.hours.toFixed(1) : '0.0'} hrs
+                                                    {formatRideTime(v.hours || 0)}
                                                 </td>
                                                 <td className="px-6 py-4 text-right text-sm font-bold text-gray-900">
                                                     ₹{v.total.toLocaleString()}

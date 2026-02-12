@@ -200,3 +200,95 @@ exports.assignFleet = async (req, res) => {
         res.status(500).json({ error: 'Failed to assign vehicles' });
     }
 };
+
+/**
+ * Update Vehicle Details
+ */
+exports.updateVehicle = async (req, res) => {
+    try {
+        const vehicleId = req.params.id;
+        const userId = req.user.id;
+        const { name, price, type } = req.body;
+
+        // Determine table
+        let tableName = 'bikes';
+        if (type === 'car') tableName = 'cars';
+        if (type === 'scooty' || type === 'scooter') tableName = 'scooty';
+
+        // Verify ownership
+        const { data: vehicle, error: fetchError } = await supabase
+            .from(tableName)
+            .select('*')
+            .eq('id', vehicleId)
+            .eq('sponsor_id', userId)
+            .single();
+
+        if (fetchError || !vehicle) {
+            return res.status(404).json({ error: 'Vehicle not found or unauthorized' });
+        }
+
+        // Update
+        const updateData = {};
+        if (name) updateData.name = name;
+        if (price) updateData.price = price;
+
+        const { error: updateError } = await supabase
+            .from(tableName)
+            .update(updateData)
+            .eq('id', vehicleId);
+
+        if (updateError) {
+            console.error('Update error:', updateError);
+            return res.status(500).json({ error: 'Failed to update vehicle' });
+        }
+
+        res.json({ success: true, message: 'Vehicle updated successfully' });
+    } catch (error) {
+        console.error('Error updating vehicle:', error);
+        res.status(500).json({ error: 'Failed to update vehicle' });
+    }
+};
+
+/**
+ * Delete Vehicle
+ */
+exports.deleteVehicle = async (req, res) => {
+    try {
+        const vehicleId = req.params.id;
+        const userId = req.user.id;
+        const { type } = req.body;
+
+        // Determine table
+        let tableName = 'bikes';
+        if (type === 'car') tableName = 'cars';
+        if (type === 'scooty' || type === 'scooter') tableName = 'scooty';
+
+        // Verify ownership
+        const { data: vehicle, error: fetchError } = await supabase
+            .from(tableName)
+            .select('*')
+            .eq('id', vehicleId)
+            .eq('sponsor_id', userId)
+            .single();
+
+        if (fetchError || !vehicle) {
+            return res.status(404).json({ error: 'Vehicle not found or unauthorized' });
+        }
+
+        // Delete
+        const { error: deleteError } = await supabase
+            .from(tableName)
+            .delete()
+            .eq('id', vehicleId);
+
+        if (deleteError) {
+            console.error('Delete error:', deleteError);
+            return res.status(500).json({ error: 'Failed to delete vehicle' });
+        }
+
+        res.json({ success: true, message: 'Vehicle deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting vehicle:', error);
+        res.status(500).json({ error: 'Failed to delete vehicle' });
+    }
+};

@@ -2,62 +2,43 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-import { PlusCircle, Edit, Trash2, Clock, DollarSign, Calendar, Eye } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Clock, DollarSign, Calendar, Eye, X, Save, AlertTriangle } from 'lucide-react';
 
 const MyBikes = () => {
     const [bikes, setBikes] = useState([]);
     const [loading, setLoading] = useState(true);
-
-    // Mock data
-    const mockBikes = [
-        {
-            _id: '1',
-            name: 'Royal Enfield Classic 350',
-            bikeNumber: 'KA-01-AB-1234',
-            image: 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=500&q=80',
-            approval_status: 'approved',
-            totalBookings: 12,
-            totalRideHours: 45,
-            totalRevenue: 5400,
-            isAvailable: true
-        },
-        {
-            _id: '2',
-            name: 'Yamaha R15 V4',
-            bikeNumber: 'KA-05-XY-8899',
-            image: 'https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&w=500&q=80',
-            approval_status: 'pending',
-            totalBookings: 0,
-            totalRideHours: 0,
-            totalRevenue: 0,
-            isAvailable: false
-        }
-    ];
+    const [viewModal, setViewModal] = useState(null);
+    const [editModal, setEditModal] = useState(null);
+    const [deleteModal, setDeleteModal] = useState(null);
+    const [editForm, setEditForm] = useState({});
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
-        const fetchBikes = async () => {
-            try {
-                const response = await api.get('/sponsor/my-bikes');
-                // Backend returns { bikes: [...] }, so we need to access response.data.bikes
-                setBikes(response.data.bikes || []);
-            } catch (error) {
-                console.error(error);
-                // Fallback to mock data
-                setBikes(mockBikes);
-                // toast.error("Using mock data (Start backend API)");
-            } finally {
-                setLoading(false);
-            }
-        };
-
         fetchBikes();
     }, []);
+
+    const formatRideTime = (hours) => {
+        if (!hours || hours === 0) return '0h 0min';
+        const h = Math.floor(hours);
+        const m = Math.round((hours - h) * 60);
+        return `${h}h ${m}min`;
+    };
+
+    const fetchBikes = async () => {
+        try {
+            const response = await api.get('/sponsor/my-bikes');
+            setBikes(response.data.bikes || []);
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to load vehicles");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const toggleAvailability = async (id, currentStatus, type) => {
         try {
             const statusToSet = !currentStatus;
-
-            // Optimistic update
             setBikes(bikes.map(bike =>
                 (bike._id === id || bike.id === id) ? { ...bike, isAvailable: statusToSet, is_available: statusToSet } : bike
             ));
@@ -71,10 +52,54 @@ const MyBikes = () => {
         } catch (error) {
             console.error(error);
             toast.error('Failed to update availability');
-            // Revert
             setBikes(bikes.map(bike =>
                 (bike._id === id || bike.id === id) ? { ...bike, isAvailable: currentStatus, is_available: currentStatus } : bike
             ));
+        }
+    };
+
+    const handleEdit = (bike) => {
+        setEditForm({
+            id: bike.id || bike._id,
+            name: bike.name,
+            price: bike.price,
+            type: bike.type || 'bike'
+        });
+        setEditModal(bike);
+    };
+
+    const handleSaveEdit = async () => {
+        setSaving(true);
+        try {
+            await api.patch(`/sponsor/bikes/${editForm.id}`, {
+                name: editForm.name,
+                price: editForm.price,
+                type: editForm.type
+            });
+
+            toast.success('Vehicle updated successfully');
+            setEditModal(null);
+            fetchBikes();
+        } catch (error) {
+            console.error(error);
+            toast.error('Failed to update vehicle');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        try {
+            await api.delete(`/sponsor/bikes/${deleteModal.id || deleteModal._id}`, {
+                data: { type: deleteModal.type || 'bike' }
+            });
+
+            toast.success('Vehicle deleted successfully');
+            setDeleteModal(null);
+            fetchBikes();
+        } catch (error) {
+            console.error(error);
+            toast.error('Failed to delete vehicle');
         }
     };
 
@@ -115,7 +140,6 @@ const MyBikes = () => {
                         <div className="p-5">
                             <div className="flex justify-between items-start mb-2">
                                 <h3 className="text-lg font-bold text-gray-800 truncate" title={bike.name}>{bike.name}</h3>
-                                {/* Toggle Switch - Only for approved vehicles */}
                                 {(bike.status === 'approved' || bike.approval_status === 'approved') && (
                                     <label className="relative inline-flex items-center cursor-pointer">
                                         <input
@@ -130,7 +154,6 @@ const MyBikes = () => {
                             </div>
                             <p className="text-sm text-gray-500 mb-4 font-mono">{bike.bikeNumber || bike.registration_number}</p>
 
-                            {/* Stats - Only for approved vehicles */}
                             {(bike.status === 'approved' || bike.approval_status === 'approved') ? (
                                 <div className="grid grid-cols-3 gap-2 py-3 border-t border-b border-gray-100 mb-4">
                                     <div className="text-center">
@@ -139,7 +162,7 @@ const MyBikes = () => {
                                     </div>
                                     <div className="text-center border-l border-r border-gray-100">
                                         <p className="text-xs text-gray-400 mb-1 flex justify-center"><Clock className="w-3 h-3" /></p>
-                                        <p className="text-sm font-semibold text-gray-700">{bike.totalRideHours || 0}h</p>
+                                        <p className="text-sm font-semibold text-gray-700">{formatRideTime(bike.totalRideHours || 0)}</p>
                                     </div>
                                     <div className="text-center">
                                         <p className="text-xs text-gray-400 mb-1 flex justify-center"><DollarSign className="w-3 h-3" /></p>
@@ -155,18 +178,31 @@ const MyBikes = () => {
                             )}
 
                             <div className="flex gap-2">
-                                <button className="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-600 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1">
+                                <button
+                                    onClick={() => handleEdit(bike)}
+                                    className="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-600 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1"
+                                >
                                     <Edit className="w-4 h-4" /> Edit
                                 </button>
-                                <button title="View Details" className="p-2 bg-brand-50 hover:bg-brand-100 text-brand-600 rounded-lg transition-colors">
+                                <button
+                                    onClick={() => setViewModal(bike)}
+                                    title="View Details"
+                                    className="p-2 bg-brand-50 hover:bg-brand-100 text-brand-600 rounded-lg transition-colors"
+                                >
                                     <Eye className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={() => setDeleteModal(bike)}
+                                    title="Delete"
+                                    className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors"
+                                >
+                                    <Trash2 className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>
                     </div>
                 ))}
 
-                {/* Add New Mock Card (Always verify visibility) */}
                 <Link to="/add-bike" className="border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-400 hover:text-brand-500 hover:border-brand-300 hover:bg-brand-50/10 transition-all min-h-[350px]">
                     <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                         <PlusCircle className="w-8 h-8" />
@@ -174,6 +210,131 @@ const MyBikes = () => {
                     <span className="font-medium">Add Another Bike</span>
                 </Link>
             </div>
+
+            {/* View Details Modal */}
+            {viewModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setViewModal(null)}>
+                    <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                        <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center">
+                            <h2 className="text-2xl font-bold text-gray-800">Vehicle Details</h2>
+                            <button onClick={() => setViewModal(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-6">
+                            <img src={viewModal.image || viewModal.image_url} alt={viewModal.name} className="w-full h-64 object-cover rounded-xl mb-6" />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <p className="text-xs text-gray-400 uppercase font-semibold mb-1">Name</p>
+                                    <p className="text-lg font-bold text-gray-800">{viewModal.name}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-400 uppercase font-semibold mb-1">Price</p>
+                                    <p className="text-lg font-bold text-green-600">₹{viewModal.price}/hr</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-400 uppercase font-semibold mb-1">Type</p>
+                                    <p className="text-gray-700 capitalize">{viewModal.type || 'bike'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-400 uppercase font-semibold mb-1">Status</p>
+                                    <span className={`px-2 py-1 rounded-full text-xs font-semibold uppercase ${viewModal.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                        {viewModal.status || 'Pending'}
+                                    </span>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-400 uppercase font-semibold mb-1">Total Bookings</p>
+                                    <p className="text-gray-700">{viewModal.totalBookings || 0}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-400 uppercase font-semibold mb-1">Total Revenue</p>
+                                    <p className="text-gray-700">₹{viewModal.totalRevenue || 0}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Modal */}
+            {editModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setEditModal(null)}>
+                    <div className="bg-white rounded-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+                        <div className="border-b border-gray-200 p-6 flex justify-between items-center">
+                            <h2 className="text-2xl font-bold text-gray-800">Edit Vehicle</h2>
+                            <button onClick={() => setEditModal(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">Vehicle Name</label>
+                                <input
+                                    type="text"
+                                    value={editForm.name}
+                                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">Price per Hour (₹)</label>
+                                <input
+                                    type="number"
+                                    value={editForm.price}
+                                    onChange={(e) => setEditForm({ ...editForm, price: e.target.value })}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                                />
+                            </div>
+                            <div className="flex gap-3 pt-4">
+                                <button
+                                    onClick={() => setEditModal(null)}
+                                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSaveEdit}
+                                    disabled={saving}
+                                    className="flex-1 px-4 py-2 bg-brand-600 text-white rounded-lg font-semibold hover:bg-brand-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {saving ? 'Saving...' : <><Save className="w-4 h-4" /> Save</>}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {deleteModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setDeleteModal(null)}>
+                    <div className="bg-white rounded-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+                        <div className="p-6">
+                            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <AlertTriangle className="w-6 h-6 text-red-600" />
+                            </div>
+                            <h2 className="text-xl font-bold text-gray-800 text-center mb-2">Delete Vehicle?</h2>
+                            <p className="text-gray-600 text-center mb-6">
+                                Are you sure you want to delete <strong>{deleteModal.name}</strong>? This action cannot be undone.
+                            </p>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setDeleteModal(null)}
+                                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleDelete}
+                                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors"
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

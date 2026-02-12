@@ -100,31 +100,96 @@ class SponsorModel {
             return [];
         }
 
+        // Fetch all bookings for this sponsor's vehicles (match Revenue page logic)
+        const { data: allBookings } = await supabase
+            .from('bookings')
+            .select('*')
+            .in('status', ['completed', 'ride_completed', 'ride_ended', 'payment_success']);
+
+        // Create a map of vehicle stats from bookings
+        const vehicleStatsMap = {};
+
+        if (allBookings && allBookings.length > 0) {
+            allBookings.forEach(booking => {
+                // Normalize vehicle type (bikes -> bike, cars -> car)
+                let vType = (booking.vehicle_type || '').toLowerCase();
+                if (vType === 'bikes') vType = 'bike';
+                if (vType === 'cars') vType = 'car';
+                if (vType === 'scooty' || vType === 'scooter') vType = 'scooty';
+
+                const key = `${booking.vehicle_id}-${vType}`;
+
+                if (!vehicleStatsMap[key]) {
+                    vehicleStatsMap[key] = {
+                        totalBookings: 0,
+                        totalRideHours: 0,
+                        totalRevenue: 0
+                    };
+                }
+
+                // Calculate Duration (same logic as Revenue page)
+                let rideDuration = parseFloat(booking.duration) || 0;
+                if (booking.ride_start_time && booking.ride_end_time) {
+                    const start = new Date(booking.ride_start_time);
+                    const end = new Date(booking.ride_end_time);
+                    const diffMs = end - start;
+                    if (diffMs > 0) {
+                        rideDuration = diffMs / (1000 * 60 * 60); // Hours with decimals
+                    }
+                }
+
+                vehicleStatsMap[key].totalBookings += 1;
+                vehicleStatsMap[key].totalRideHours += rideDuration;
+                vehicleStatsMap[key].totalRevenue += booking.total_amount || booking.total_price || 0;
+            });
+        }
+
         const liveVehicles = [
-            ...(bikes.data || []).map(v => ({
-                ...v,
-                type: 'bike',
-                status: 'approved',
-                approval_status: 'approved',
-                image: v.image_url,
-                bikeNumber: v.registration_number
-            })),
-            ...(cars.data || []).map(v => ({
-                ...v,
-                type: 'car',
-                status: 'approved',
-                approval_status: 'approved',
-                image: v.image_url,
-                bikeNumber: v.registration_number
-            })),
-            ...(scooty.data || []).map(v => ({
-                ...v,
-                type: 'scooty',
-                status: 'approved',
-                approval_status: 'approved',
-                image: v.image_url,
-                bikeNumber: v.registration_number
-            }))
+            ...(bikes.data || []).map(v => {
+                const key = `${v.id}-bike`;
+                const stats = vehicleStatsMap[key] || { totalBookings: 0, totalRideHours: 0, totalRevenue: 0 };
+                return {
+                    ...v,
+                    type: 'bike',
+                    status: 'approved',
+                    approval_status: 'approved',
+                    image: v.image_url,
+                    bikeNumber: v.registration_number,
+                    totalBookings: stats.totalBookings,
+                    totalRideHours: stats.totalRideHours,
+                    totalRevenue: stats.totalRevenue
+                };
+            }),
+            ...(cars.data || []).map(v => {
+                const key = `${v.id}-car`;
+                const stats = vehicleStatsMap[key] || { totalBookings: 0, totalRideHours: 0, totalRevenue: 0 };
+                return {
+                    ...v,
+                    type: 'car',
+                    status: 'approved',
+                    approval_status: 'approved',
+                    image: v.image_url,
+                    bikeNumber: v.registration_number,
+                    totalBookings: stats.totalBookings,
+                    totalRideHours: stats.totalRideHours,
+                    totalRevenue: stats.totalRevenue
+                };
+            }),
+            ...(scooty.data || []).map(v => {
+                const key = `${v.id}-scooty`;
+                const stats = vehicleStatsMap[key] || { totalBookings: 0, totalRideHours: 0, totalRevenue: 0 };
+                return {
+                    ...v,
+                    type: 'scooty',
+                    status: 'approved',
+                    approval_status: 'approved',
+                    image: v.image_url,
+                    bikeNumber: v.registration_number,
+                    totalBookings: stats.totalBookings,
+                    totalRideHours: stats.totalRideHours,
+                    totalRevenue: stats.totalRevenue
+                };
+            })
         ];
 
         // Filter out requests that are already approved (since they are in liveVehicles)
@@ -210,17 +275,11 @@ class SponsorModel {
         if (reqError) throw reqError;
         if (!request) throw new Error('Request not found');
 
-        // 2. Prepare data for main table
+        // 2. Prepare data for main table (ONLY use columns that exist in bikes/cars/scooty tables)
         const vehicleData = {
             name: request.name,
-            registration_number: request.registration_number,
-            model: request.model,
-            year: request.year,
             price: request.price,
             image_url: request.image_url,
-            rc_url: request.rc_url,
-            insurance_url: request.insurance_url,
-            puc_url: request.puc_url,
             sponsor_id: request.sponsor_id,
             is_approved: true,
             is_available: true
@@ -240,7 +299,10 @@ class SponsorModel {
             .select()
             .single();
 
-        if (insertError) throw insertError;
+        if (insertError) {
+            console.error('Error inserting vehicle:', insertError);
+            throw insertError;
+        }
 
         // 4. Update request status
         await supabase
