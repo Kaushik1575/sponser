@@ -293,23 +293,36 @@ class SponsorModel {
 
         // 3. Aggregate
         bookings.forEach(b => {
-            // Determine booking vehicle type
-            const bType = b.vehicle_type || b.vehicleType;
+            // Determine booking booking vehicle type
+            let bType = (b.vehicle_type || b.vehicleType || '').toLowerCase();
+            if (bType === 'bikes') bType = 'bike';
+            if (bType === 'cars') bType = 'car';
+
             // Construct key to match specific vehicle (ID + Type)
             const key = bType ? `${b.vehicle_id}-${bType}` : null;
 
-            // Match condition: 
-            // 1. Key matches (Existing type) 
-            // 2. OR fallback: booking has no type, but ID in list (Legacy/Simple logic)
+            // Match condition
             if ((key && myVehicleMap.has(key)) || (!bType && vehicleIds.includes(b.vehicle_id))) {
 
-                // Count Bookings (All non-cancelled?? Or just confirmed/completed)
-                // Usually "Total Bookings" includes active ones.
                 totalBookings++;
+
+                // Calculate Duration
+                let rideDuration = parseFloat(b.duration) || 0;
+                // If ride is completed and has timestamps, use precise duration
+                if (['completed', 'ride_completed', 'ride_ended', 'payment_success'].includes(b.status)) {
+                    if (b.ride_start_time && b.ride_end_time) {
+                        const start = new Date(b.ride_start_time);
+                        const end = new Date(b.ride_end_time);
+                        const diffMs = end - start;
+                        if (diffMs > 0) {
+                            rideDuration = diffMs / (1000 * 60 * 60); // Hours with decimals
+                        }
+                    }
+                }
 
                 // Count Hours (Valid rides)
                 if (!['cancelled', 'rejected', 'pending'].includes(b.status)) {
-                    totalRideHours += (parseFloat(b.duration) || 0);
+                    totalRideHours += rideDuration;
                 }
 
                 // Count Revenue (Completed/Ended only)
@@ -368,7 +381,9 @@ class SponsorModel {
             const bookingDate = new Date(b.created_at || b.booking_date || now);
 
             // Determine Key
-            const bType = b.vehicle_type || b.vehicleType;
+            let bType = (b.vehicle_type || b.vehicleType || '').toLowerCase();
+            if (bType === 'bikes') bType = 'bike';
+            if (bType === 'cars') bType = 'car';
 
             // Attempt to find vehicle stat
             let vStat = null;
@@ -382,10 +397,21 @@ class SponsorModel {
             }
 
             if (vStat) {
+                // Calculate Duration
+                let rideDuration = parseFloat(b.duration) || 0;
+                if (b.ride_start_time && b.ride_end_time) {
+                    const start = new Date(b.ride_start_time);
+                    const end = new Date(b.ride_end_time);
+                    const diffMs = end - start;
+                    if (diffMs > 0) {
+                        rideDuration = diffMs / (1000 * 60 * 60); // Hours with decimals
+                    }
+                }
+
                 // Counts towards revenue
                 grossRevenue += amount;
                 vStat.total += amount;
-                vStat.hours += (parseFloat(b.duration) || 0);
+                vStat.hours += rideDuration;
 
                 if (bookingDate >= oneWeekAgo) vStat.week += amount;
                 if (bookingDate >= oneMonthAgo) vStat.month += amount;
@@ -393,10 +419,17 @@ class SponsorModel {
                 // Add to Transaction Log
                 transactions.push({
                     id: b.id,
-                    date: bookingDate.toLocaleDateString(),
+                    booking_id: b.booking_id || b.id, // Ensure we have a display ID
+                    date: bookingDate.toLocaleDateString(), // Keep for display if needed
+                    raw_date: bookingDate.toISOString(), // For filtering
                     amount: amount,
                     type: 'Credit',
-                    description: `Rent: ${vStat.name} (${vStat.regNo || b.vehicle_id})`
+                    description: `Rent: ${vStat.name} (${vStat.regNo || b.vehicle_id})`,
+                    vehicle_id: b.vehicle_id,
+                    vehicle_name: vStat.name,
+                    vehicle_image: vStat.image,
+                    vehicle_reg: vStat.regNo,
+                    hours: rideDuration
                 });
             }
         });

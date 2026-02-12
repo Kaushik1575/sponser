@@ -10,40 +10,14 @@ const Dashboard = () => {
         totalBookings: 0,
         totalRideHours: 0,
         totalRevenue: 0,
-        netEarnings: 0
+        netEarnings: 0,
+        revenueChart: [],
+        vehicleChart: []
     });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // Mock data for charts if API fails or during development
-    const mockRevenueData = [
-        { name: 'Jan', revenue: 4000 },
-        { name: 'Feb', revenue: 3000 },
-        { name: 'Mar', revenue: 2000 },
-        { name: 'Apr', revenue: 2780 },
-        { name: 'May', revenue: 1890 },
-        { name: 'Jun', revenue: 2390 },
-        { name: 'Jul', revenue: 3490 },
-    ];
-
-    const mockBookingData = [
-        { name: 'Mon', bookings: 4 },
-        { name: 'Tue', bookings: 3 },
-        { name: 'Wed', bookings: 2 },
-        { name: 'Thu', bookings: 7 },
-        { name: 'Fri', bookings: 5 },
-        { name: 'Sat', bookings: 12 },
-        { name: 'Sun', bookings: 10 },
-    ];
-
-    const mockPieData = [
-        { name: 'Harley Davidson', value: 400 },
-        { name: 'Royal Enfield', value: 300 },
-        { name: 'Yamaha R15', value: 300 },
-        { name: 'KTM Duke', value: 200 },
-    ];
-
-    const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
+    const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
     useEffect(() => {
         const fetchDashboardData = async () => {
@@ -57,19 +31,23 @@ const Dashboard = () => {
                     totalBookings: data.totalBookings || 0,
                     totalRideHours: data.totalRideHours || 0,
                     totalRevenue: data.totalRevenue || 0,
-                    netEarnings: data.netEarnings || (data.totalRevenue * 0.9) || 0
+                    netEarnings: data.netEarnings || 0,
+                    revenueChart: data.revenueChart || [],
+                    vehicleChart: data.vehicleChart || []
                 });
                 setError(null);
             } catch (error) {
                 console.error("Failed to fetch dashboard data:", error);
                 setError(error.message);
-                // Fallback to mock data for demo purposes if backend isn't ready
+                // Fallback (zeroes)
                 setStats({
                     totalVehicles: 0,
                     totalBookings: 0,
                     totalRideHours: 0,
                     totalRevenue: 0,
-                    netEarnings: 0
+                    netEarnings: 0,
+                    revenueChart: [],
+                    vehicleChart: []
                 });
                 toast.error("Failed to load dashboard data");
             } finally {
@@ -130,7 +108,7 @@ const Dashboard = () => {
                     <h2 className="text-lg font-semibold mb-4 text-gray-700">Monthly Revenue Trend</h2>
                     <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={mockRevenueData}>
+                            <AreaChart data={stats.revenueChart}>
                                 <defs>
                                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
@@ -140,7 +118,7 @@ const Dashboard = () => {
                                 <XAxis dataKey="name" />
                                 <YAxis />
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                <Tooltip />
+                                <Tooltip formatter={(value) => [`₹${value}`, "Revenue"]} />
                                 <Area type="monotone" dataKey="revenue" stroke="#3b82f6" fillOpacity={1} fill="url(#colorRevenue)" />
                             </AreaChart>
                         </ResponsiveContainer>
@@ -148,15 +126,15 @@ const Dashboard = () => {
                 </div>
 
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <h2 className="text-lg font-semibold mb-4 text-gray-700">Weekly Booking Activity</h2>
+                    <h2 className="text-lg font-semibold mb-4 text-gray-700">Monthly Booking Activity</h2>
                     <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={mockBookingData}>
+                            <BarChart data={stats.revenueChart}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                 <XAxis dataKey="name" />
-                                <YAxis />
+                                <YAxis allowDecimals={false} />
                                 <Tooltip cursor={{ fill: '#f3f4f6' }} />
-                                <Bar dataKey="bookings" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                                <Bar dataKey="bookings" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="Bookings" />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
@@ -170,7 +148,7 @@ const Dashboard = () => {
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                                 <Pie
-                                    data={mockPieData}
+                                    data={stats.vehicleChart}
                                     cx="50%"
                                     cy="50%"
                                     innerRadius={60}
@@ -178,15 +156,15 @@ const Dashboard = () => {
                                     paddingAngle={5}
                                     dataKey="value"
                                 >
-                                    {mockPieData.map((entry, index) => (
+                                    {stats.vehicleChart.map((entry, index) => (
                                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                     ))}
                                 </Pie>
-                                <Tooltip />
+                                <Tooltip formatter={(value) => [`₹${value}`, "Revenue"]} />
                             </PieChart>
                         </ResponsiveContainer>
                         <div className="mt-4 flex flex-wrap gap-2 justify-center">
-                            {mockPieData.map((entry, index) => (
+                            {stats.vehicleChart.map((entry, index) => (
                                 <div key={index} className="flex items-center gap-1 text-xs text-gray-600">
                                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
                                     <span>{entry.name}</span>

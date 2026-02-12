@@ -77,14 +77,37 @@ exports.getDashboard = async (req, res) => {
         // Get sponsor's vehicles
         const vehicles = await SponsorModel.getSponsorVehicles(userId);
 
-        // Calculate stats
+        // Calculate vehicle status stats
         const totalVehicles = vehicles.length;
         const approvedVehicles = vehicles.filter(v => v.status === 'approved').length;
         const pendingVehicles = vehicles.filter(v => v.status === 'pending').length;
         const rejectedVehicles = vehicles.filter(v => v.status === 'rejected').length;
 
-        // Fetch real revenue stats
-        const { totalBookings, totalRideHours, totalRevenue } = await SponsorModel.getSponsorStats(userId);
+        // Fetch real revenue stats (using same source as Revenue page for consistency)
+        const { grossRevenue, transactions, vehicleStats } = await SponsorModel.getDetailedRevenueStats(userId);
+
+        // Calculate Revenue Trend (Monthly for current year)
+        const currentYear = new Date().getFullYear();
+        const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const monthlyRevenue = monthsShort.map(m => ({ name: m, revenue: 0, bookings: 0 }));
+
+        transactions.forEach(t => {
+            const d = new Date(t.raw_date || t.date);
+            if (d.getFullYear() === currentYear) {
+                const monthIdx = d.getMonth();
+                monthlyRevenue[monthIdx].revenue += t.amount;
+                monthlyRevenue[monthIdx].bookings += 1;
+            }
+        });
+
+        // Prepare Top Vehicles for Pie Chart
+        const topVehicles = vehicleStats
+            .sort((a, b) => b.total - a.total)
+            .slice(0, 5)
+            .map(v => ({ name: v.name, value: v.total }));
+
+        // Calculate Total Ride Hours from vehicle stats
+        const totalRideHours = vehicleStats.reduce((acc, curr) => acc + (curr.hours || 0), 0);
 
         res.json({
             totalBikes: totalVehicles,
@@ -92,10 +115,12 @@ exports.getDashboard = async (req, res) => {
             approvedVehicles,
             pendingVehicles,
             rejectedVehicles,
-            totalBookings,
+            totalBookings: transactions.length, // Completed bookings only
             totalRideHours,
-            totalRevenue,
-            netEarnings: totalRevenue * 0.85, // Assuming 15% platform fee deducted? Or just return revenue
+            totalRevenue: grossRevenue,
+            netEarnings: grossRevenue * 0.70, // 70% to match Revenue page
+            revenueChart: monthlyRevenue,
+            vehicleChart: topVehicles,
             recentVehicles: vehicles.slice(0, 5)
         });
     } catch (error) {
