@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
@@ -6,6 +6,7 @@ import { Upload, Bike, FileText, CheckCircle, Car, Truck, ChevronLeft, Image as 
 
 const AddBike = () => {
     const navigate = useNavigate();
+    const [sponsorId, setSponsorId] = useState('');
     const [formData, setFormData] = useState({
         name: '',
         bikeNumber: '',
@@ -14,6 +15,23 @@ const AddBike = () => {
         pricePerHour: '',
         type: 'bike'
     });
+
+    useEffect(() => {
+        const fetchSponsorId = async () => {
+            try {
+                const response = await api.get('/sponsor/profile');
+                if (response.data && response.data.sponsor && response.data.sponsor.id) {
+                    setSponsorId(response.data.sponsor.id);
+                } else if (response.data && response.data.id) {
+                    // Fallback in case API changes
+                    setSponsorId(response.data.id);
+                }
+            } catch (error) {
+                console.error("Failed to fetch sponsor ID:", error);
+            }
+        };
+        fetchSponsorId();
+    }, []);
     const [files, setFiles] = useState({
         image: null,
         rc: null,
@@ -121,9 +139,26 @@ const AddBike = () => {
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                {/* Sponsor ID (Read Only) */}
+                                <div className="space-y-2 group">
+                                    <label className="text-sm font-semibold text-gray-700 tracking-wide">Sponsor ID <span className="text-xs text-gray-400 font-normal">(Auto-filled)</span></label>
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            value={sponsorId || 'Loading...'}
+                                            readOnly
+                                            className="w-full pl-5 pr-10 py-3.5 bg-gray-100 border border-gray-200 rounded-2xl text-gray-500 font-mono text-sm cursor-not-allowed select-none"
+                                        />
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-green-500">
+                                            <CheckCircle className="w-5 h-5" />
+                                        </div>
+                                    </div>
+                                </div>
+
                                 {/* Type Selector */}
                                 <div className="space-y-2 group">
                                     <label className="text-sm font-semibold text-gray-700 tracking-wide group-hover:text-indigo-600 transition-colors">Vehicle Type</label>
+// ... (rest of type selector)
                                     <div className="relative">
                                         <select
                                             name="type"
