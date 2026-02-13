@@ -6,6 +6,13 @@ import toast from 'react-hot-toast';
 const Profile = () => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [showBankModal, setShowBankModal] = useState(false);
+    const [bankForm, setBankForm] = useState({
+        bankAccountNumber: '',
+        ifscCode: '',
+        accountHolderName: '',
+        upiId: ''
+    });
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -30,6 +37,29 @@ const Profile = () => {
         };
         fetchProfile();
     }, []);
+
+    const handleOpenBankModal = () => {
+        setBankForm({
+            bankAccountNumber: user?.bank_account_number || '',
+            ifscCode: user?.ifsc_code || '',
+            accountHolderName: user?.account_holder_name || '',
+            upiId: user?.upi_id || ''
+        });
+        setShowBankModal(true);
+    };
+
+    const handleUpdateBankDetails = async (e) => {
+        e.preventDefault();
+        try {
+            const response = await api.put('/sponsor/bank-details', bankForm);
+            toast.success('Bank details updated successfully!');
+            setUser({ ...user, ...response.data.sponsor });
+            setShowBankModal(false);
+        } catch (error) {
+            console.error('Error updating bank details:', error);
+            toast.error(error.response?.data?.error || 'Failed to update bank details');
+        }
+    };
 
     if (loading) return <div className="p-10 text-center">Loading profile...</div>;
     if (!user) return <div className="p-10 text-center text-red-500">User not found. Please login again.</div>;
@@ -121,30 +151,109 @@ const Profile = () => {
                                 <Building className="w-5 h-5 text-gray-400" />
                                 <div>
                                     <p className="text-xs text-gray-400">Bank Account</p>
-                                    <p className="text-sm font-medium font-mono">{user.bankAccount ? `•••• •••• ${user.bankAccount.slice(-4)}` : "Not Linked"}</p>
+                                    <p className="text-sm font-medium font-mono">{user.bank_account_number ? `•••• •••• ${user.bank_account_number.slice(-4)}` : "Not Linked"}</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-3 text-gray-600">
                                 <CreditCard className="w-5 h-5 text-gray-400" />
                                 <div>
                                     <p className="text-xs text-gray-400">IFSC Code</p>
-                                    <p className="text-sm font-medium font-mono">{user.ifscCode || "N/A"}</p>
+                                    <p className="text-sm font-medium font-mono">{user.ifsc_code || "N/A"}</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-3 text-gray-600">
                                 <div className="w-5 h-5 text-gray-400 font-bold flex items-center justify-center text-[10px] border border-gray-400 rounded">UPI</div>
                                 <div>
                                     <p className="text-xs text-gray-400">UPI ID</p>
-                                    <p className="text-sm font-medium">{user.upiId || "Not Linked"}</p>
+                                    <p className="text-sm font-medium">{user.upi_id || "Not Linked"}</p>
                                 </div>
                             </div>
                         </div>
                         <div className="mt-6 pt-4 border-t border-gray-100">
-                            <button className="text-sm text-brand-600 font-medium hover:text-brand-700 transition-colors">Update Bank Details</button>
+                            <button onClick={handleOpenBankModal} className="text-sm text-brand-600 font-medium hover:text-brand-700 transition-colors">Update Bank Details</button>
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* Bank Details Update Modal */}
+            {showBankModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-6">Update Bank Details</h2>
+
+                        <form onSubmit={handleUpdateBankDetails} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Account Holder Name
+                                </label>
+                                <input
+                                    type="text"
+                                    value={bankForm.accountHolderName}
+                                    onChange={(e) => setBankForm({ ...bankForm, accountHolderName: e.target.value })}
+                                    placeholder="Enter account holder name"
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-200 transition-all"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Bank Account Number
+                                </label>
+                                <input
+                                    type="text"
+                                    value={bankForm.bankAccountNumber}
+                                    onChange={(e) => setBankForm({ ...bankForm, bankAccountNumber: e.target.value })}
+                                    placeholder="Enter account number"
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-200 transition-all font-mono"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    IFSC Code
+                                </label>
+                                <input
+                                    type="text"
+                                    value={bankForm.ifscCode}
+                                    onChange={(e) => setBankForm({ ...bankForm, ifscCode: e.target.value.toUpperCase() })}
+                                    placeholder="Enter IFSC code"
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-200 transition-all font-mono uppercase"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    UPI ID
+                                </label>
+                                <input
+                                    type="text"
+                                    value={bankForm.upiId}
+                                    onChange={(e) => setBankForm({ ...bankForm, upiId: e.target.value })}
+                                    placeholder="yourname@upi"
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-200 transition-all"
+                                />
+                            </div>
+
+                            <div className="flex gap-3 mt-6">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowBankModal(false)}
+                                    className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="flex-1 px-4 py-3 bg-gradient-to-r from-brand-600 to-cyan-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all"
+                                >
+                                    Update
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

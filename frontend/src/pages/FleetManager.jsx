@@ -70,7 +70,7 @@ const FleetManager = () => {
     if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-500">Loading Fleet Manager...</div>;
 
     return (
-        <div className="min-h-screen bg-gray-50 p-6 md:p-10 font-sans">
+        <div className="p-6">
             <div className="max-w-7xl mx-auto">
                 <div className="sticky top-0 z-20 bg-gray-50/95 backdrop-blur-sm pb-4 border-b border-gray-200 mb-6">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">

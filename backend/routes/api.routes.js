@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/auth.controller');
 const sponsorController = require('../controllers/sponsor.controller');
+const withdrawalController = require('../controllers/withdrawal.controller');
 const { verifyToken } = require('../middleware/authMiddleware');
 const upload = require('../middleware/upload');
 
@@ -28,8 +29,21 @@ router.patch('/sponsor/bikes/:id', verifyToken, sponsorController.updateVehicle)
 router.delete('/sponsor/bikes/:id', verifyToken, sponsorController.deleteVehicle);
 router.get('/sponsor/revenue', verifyToken, sponsorController.getRevenue);
 
+// Withdrawal Routes (Sponsor)
+router.post('/sponsor/withdrawal/request', verifyToken, withdrawalController.createWithdrawalRequest);
+router.get('/sponsor/withdrawal/my-requests', verifyToken, withdrawalController.getMyWithdrawalRequests);
+router.put('/sponsor/bank-details', verifyToken, withdrawalController.updateBankDetails);
+
+// Withdrawal Routes (Admin)
+router.get('/admin/withdrawal/test', (req, res) => {
+    res.json({ message: 'Withdrawal routes are working!' });
+});
+router.get('/admin/withdrawal/requests', withdrawalController.getAllWithdrawalRequests);
+router.patch('/admin/withdrawal/requests/:requestId', withdrawalController.updateWithdrawalStatus);
+
 // Fleet Management (Admin Setup)
 router.get('/admin/fleet', sponsorController.getFleetData);
 router.post('/admin/assign-fleet', sponsorController.assignFleet);
+router.get('/admin/sponsor-report', sponsorController.getSponsorEarningsReport);
 
 module.exports = router;

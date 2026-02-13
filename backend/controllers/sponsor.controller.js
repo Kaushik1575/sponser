@@ -292,3 +292,53 @@ exports.deleteVehicle = async (req, res) => {
         res.status(500).json({ error: 'Failed to delete vehicle' });
     }
 };
+
+exports.getSponsorEarningsReport = async (req, res) => {
+    try {
+        const rawStats = await SponsorModel.getSponsorEarningsReport();
+
+        // Calculate derived fields
+        // 1. Map to report format
+        const report = (rawStats || []).map(stat => {
+            const revenue = stat.revenue || 0;
+            const share = revenue * 0.70;
+            const fee = revenue * 0.30;
+            const withdrawn = stat.withdrawn || 0;
+            const balance = share - withdrawn;
+
+            return {
+                id: stat.id,
+                name: stat.name,
+                email: stat.email,
+                totalRevenue: revenue,
+                sponsorShare: share,
+                platformFee: fee,
+                withdrawn: withdrawn,
+                balance: balance,
+                bookings: stat.bookings,
+                vehicleCount: stat.vehicleCount
+            };
+        });
+
+        // 2. Calculate Totals for Summary Cards
+        const totals = report.reduce((acc, curr) => ({
+            totalRevenue: acc.totalRevenue + curr.totalRevenue,
+            sponsorShare: acc.sponsorShare + curr.sponsorShare,
+            platformFee: acc.platformFee + curr.platformFee,
+            totalPaid: acc.totalPaid + curr.withdrawn,
+            pendingBalance: acc.pendingBalance + curr.balance
+        }), {
+            totalRevenue: 0,
+            sponsorShare: 0,
+            platformFee: 0,
+            totalPaid: 0,
+            pendingBalance: 0
+        });
+
+        res.json({ report, totals });
+
+    } catch (error) {
+        console.error('Error generating sponsor report:', error);
+        res.status(500).json({ error: 'Failed to generate report' });
+    }
+};

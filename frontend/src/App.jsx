@@ -8,11 +8,14 @@ import MyBikes from './pages/MyBikes';
 import Bookings from './pages/Bookings';
 import Revenue from './pages/Revenue';
 import Profile from './pages/Profile';
+import Withdrawal from './pages/Withdrawal';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
 
 import FleetManager from './pages/FleetManager';
+import AdminWithdrawals from './pages/AdminWithdrawals';
+import AdminSponsorReport from './pages/AdminSponsorReport';
 
 function App() {
   return (
@@ -26,6 +29,8 @@ function App() {
 
           {/* Fleet Setup Tool (Temporary/Admin) */}
           <Route path="/fleet-manager" element={<FleetManager />} />
+          <Route path="/admin/withdrawals" element={<AdminWithdrawals />} />
+          <Route path="/admin/sponsor-report" element={<AdminSponsorReport />} />
 
           {/* Protected Routes (Sponsor only) */}
           <Route element={<ProtectedRoute allowedRoles={['sponsor']} />}>
@@ -36,6 +41,7 @@ function App() {
               <Route path="/my-bikes" element={<MyBikes />} />
               <Route path="/bookings" element={<Bookings />} />
               <Route path="/revenue" element={<Revenue />} />
+              <Route path="/withdrawal" element={<Withdrawal />} />
               <Route path="/profile" element={<Profile />} />
             </Route>
           </Route>

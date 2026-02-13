@@ -1,4 +1,5 @@
 const supabase = require('../config/supabase');
+const { normalizeVehicleType } = require('../utils/vehicleTypeNormalizer');
 
 class SponsorModel {
 
@@ -442,10 +443,8 @@ class SponsorModel {
             const amount = parseFloat(b.total_amount) || 0;
             const bookingDate = new Date(b.created_at || b.booking_date || now);
 
-            // Determine Key
-            let bType = (b.vehicle_type || b.vehicleType || '').toLowerCase();
-            if (bType === 'bikes') bType = 'bike';
-            if (bType === 'cars') bType = 'car';
+            // Normalize type using utility function
+            const bType = normalizeVehicleType(b.vehicle_type || b.vehicleType);
 
             // Attempt to find vehicle stat
             let vStat = null;
@@ -557,6 +556,123 @@ class SponsorModel {
 
         if (error) throw error;
         return true;
+    }
+
+    static async getSponsorEarningsReport() {
+        // 1. Fetch all sponsors
+        const { data: sponsors, error: sponsorError } = await supabase
+            .from('sponsors')
+            .select('id, full_name, email');
+
+        if (sponsorError) throw sponsorError;
+
+        // 2. Fetch all vehicles to map ID -> Sponsor
+        const [bikes, cars, scooty] = await Promise.all([
+            supabase.from('bikes').select('id, sponsor_id'),
+            supabase.from('cars').select('id, sponsor_id'),
+            supabase.from('scooty').select('id, sponsor_id')
+        ]);
+
+        const vehicleOwnerMap = new Map(); // "id-type" -> sponsor_id
+
+        const addToMap = (list, type) => {
+            (list || []).forEach(v => {
+                vehicleOwnerMap.set(`${v.id}-${type}`, v.sponsor_id);
+            });
+        };
+
+        addToMap(bikes.data, 'bike');
+        addToMap(cars.data, 'car');
+        addToMap(scooty.data, 'scooty');
+
+        // 3. Fetch all completed bookings (MUST match filter in getDetailedRevenueStats)
+        const { data: bookings, error: bookingError } = await supabase
+            .from('bookings')
+            .select('vehicle_id, vehicle_type, total_amount, status')
+            .in('status', ['completed', 'ride_completed', 'ride_ended', 'payment_success']);
+
+        if (bookingError) throw bookingError;
+
+        // 4. Fetch all completed withdrawals
+        const { data: withdrawals, error: withdrawalError } = await supabase
+            .from('withdrawal_requests')
+            .select('sponsor_id, amount')
+            .eq('status', 'completed');
+
+        if (withdrawalError) console.warn("Withdrawal table error:", withdrawalError);
+
+        // --- Aggregation ---
+
+        const sponsorStats = new Map();
+
+        // Initialize sponsors
+        sponsors.forEach(s => {
+            sponsorStats.set(s.id, {
+                id: s.id,
+                name: s.full_name,
+                email: s.email,
+                revenue: 0,
+                withdrawn: 0,
+                bookings: 0,
+                vehicleCount: 0 // Track vehicles
+            });
+        });
+
+        // Initialize "Unassigned / RentHub"
+        const UNASSIGNED_ID = 'unassigned';
+        sponsorStats.set(UNASSIGNED_ID, {
+            id: UNASSIGNED_ID,
+            name: 'Unassigned / RentHub',
+            email: '---',
+            revenue: 0,
+            withdrawn: 0,
+            bookings: 0,
+            vehicleCount: 0
+        });
+
+        // Count Vehicles
+        for (const [key, ownerId] of vehicleOwnerMap.entries()) {
+            let stats = sponsorStats.get(ownerId);
+            if (!stats) stats = sponsorStats.get(UNASSIGNED_ID);
+            stats.vehicleCount += 1;
+        }
+
+        // Process Bookings
+        (bookings || []).forEach(b => {
+            // Normalize type using utility function
+            const vType = normalizeVehicleType(b.vehicle_type || b.vehicleType);
+
+            // Lookup owner
+            // Try exact match first
+            let key = `${b.vehicle_id}-${vType}`;
+            let sponsorId = vehicleOwnerMap.get(key);
+
+            // Fallback: Try all types if not found (in case booking type is corrupted or missing)
+            if (!sponsorId) {
+                sponsorId = vehicleOwnerMap.get(`${b.vehicle_id}-bike`) ||
+                    vehicleOwnerMap.get(`${b.vehicle_id}-car`) ||
+                    vehicleOwnerMap.get(`${b.vehicle_id}-scooty`);
+            }
+
+            // If sponsor exists and is in our list
+            let stats = sponsorStats.get(sponsorId);
+            if (!stats) {
+                stats = sponsorStats.get(UNASSIGNED_ID);
+            }
+
+            stats.revenue += (parseFloat(b.total_amount) || 0);
+            stats.bookings += 1;
+        });
+
+        // Process Withdrawals
+        (withdrawals || []).forEach(w => {
+            const stats = sponsorStats.get(w.sponsor_id);
+            if (stats) {
+                stats.withdrawn += (parseFloat(w.amount) || 0);
+            }
+        });
+
+        return Array.from(sponsorStats.values());
     }
 }
 

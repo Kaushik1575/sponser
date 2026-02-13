@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, PlusCircle, Bike, CalendarDays, DollarSign, User, X } from 'lucide-react';
+import { Home, PlusCircle, Bike, CalendarDays, DollarSign, User, X, Banknote } from 'lucide-react';
 
 const Sidebar = ({ onClose = () => { } }) => {
     const location = useLocation();
@@ -10,6 +10,7 @@ const Sidebar = ({ onClose = () => { } }) => {
         { path: '/my-bikes', label: 'My Bikes', icon: Bike },
         { path: '/bookings', label: 'Bookings', icon: CalendarDays },
         { path: '/revenue', label: 'Revenue', icon: DollarSign },
+        { path: '/withdrawal', label: 'Withdrawal', icon: Banknote },
         { path: '/profile', label: 'Profile', icon: User },
     ];
 
@@ -34,8 +35,8 @@ const Sidebar = ({ onClose = () => { } }) => {
                             to={item.path}
                             onClick={onClose} // Auto-close on mobile selection
                             className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group ${isActive
-                                    ? 'bg-brand-50 text-brand-600 font-medium shadow-sm'
-                                    : 'text-gray-600 hover:bg-gray-50 hover:text-brand-500'
+                                ? 'bg-brand-50 text-brand-600 font-medium shadow-sm'
+                                : 'text-gray-600 hover:bg-gray-50 hover:text-brand-500'
                                 }`}
                         >
                             <item.icon className={`w-5 h-5 ${isActive ? 'text-brand-600' : 'text-gray-400 group-hover:text-brand-500'}`} />
