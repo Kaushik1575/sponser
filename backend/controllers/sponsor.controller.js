@@ -1,5 +1,6 @@
 const { uploadToSupabase } = require('../utils/supabaseStorage');
 const SponsorModel = require('../models/sponsorModel');
+const supabase = require('../config/supabase');
 const SUPABASE_BUCKET = process.env.SUPABASE_BUCKET || 'uploads';
 
 exports.addBike = async (req, res) => {
@@ -172,6 +173,131 @@ exports.getRevenue = async (req, res) => {
     } catch (error) {
         console.error('Error fetching revenue:', error);
         res.status(500).json({ error: 'Failed to fetch revenue stats' });
+    }
+};
+
+/**
+ * Get Sponsor Bookings
+ */
+exports.getBookings = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // 1. Get sponsor's vehicles
+        const vehicles = await SponsorModel.getSponsorVehicles(userId);
+
+        if (!vehicles || vehicles.length === 0) {
+            return res.json({ bookings: [] });
+        }
+
+        // Create a map of vehicle details for quick lookup
+        const vehicleMap = new Map();
+        vehicles.forEach(v => {
+            const key = `${v.id}-${v.type}`;
+            vehicleMap.set(key, {
+                name: v.name,
+                model: v.model,
+                registration_number: v.registration_number || v.bikeNumber,
+                image_url: v.image_url || v.image,
+                type: v.type
+            });
+        });
+
+        const vehicleIds = vehicles.map(v => v.id);
+
+        // 2. Fetch all bookings for these vehicles
+        const { data: bookings, error } = await supabase
+            .from('bookings')
+            .select('*')
+            .in('vehicle_id', vehicleIds)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Error fetching bookings:', error);
+            return res.status(500).json({ error: 'Failed to fetch bookings' });
+        }
+
+        // 3. Get unique user IDs from bookings
+        const userIds = [...new Set(bookings.map(b => b.user_id).filter(Boolean))];
+
+        // 4. Fetch user details
+        let userMap = new Map();
+        if (userIds.length > 0) {
+            const { data: users, error: userError } = await supabase
+                .from('users')
+                .select('id, full_name, email, phone_number')
+                .in('id', userIds);
+
+            if (!userError && users) {
+                users.forEach(u => {
+                    userMap.set(u.id, {
+                        name: u.full_name || 'Unknown Customer',
+                        email: u.email,
+                        phone: u.phone_number
+                    });
+                });
+            }
+        }
+
+        // 5. Format bookings with enriched data
+        const formattedBookings = bookings
+            .map(b => {
+                // Normalize vehicle type
+                let vType = (b.vehicle_type || '').toLowerCase();
+                if (vType === 'bikes') vType = 'bike';
+                if (vType === 'cars') vType = 'car';
+                if (vType === 'scooty' || vType === 'scooter') vType = 'scooty';
+
+                const vehicleKey = `${b.vehicle_id}-${vType}`;
+                const vehicle = vehicleMap.get(vehicleKey);
+
+                // Skip if vehicle doesn't belong to this sponsor
+                if (!vehicle) return null;
+
+                const customer = userMap.get(b.user_id) || { name: 'Unknown Customer', email: '-', phone: '-' };
+
+                // Calculate duration
+                let duration = parseFloat(b.duration) || 0;
+                if (b.ride_start_time && b.ride_end_time) {
+                    const start = new Date(b.ride_start_time);
+                    const end = new Date(b.ride_end_time);
+                    const diffMs = end - start;
+                    if (diffMs > 0) {
+                        duration = diffMs / (1000 * 60 * 60); // Hours
+                    }
+                }
+
+                return {
+                    _id: b.id,
+                    bookingId: b.booking_id || `BK${b.id}`,
+                    customerName: customer.name,
+                    customerEmail: customer.email,
+                    customerPhone: customer.phone,
+                    vehicleName: vehicle.name,
+                    vehicleModel: vehicle.model,
+                    vehicleType: vehicle.type,
+                    vehicleImage: vehicle.image_url,
+                    registrationNumber: vehicle.registration_number,
+                    startTime: b.ride_start_time || b.start_time || b.created_at,
+                    endTime: b.ride_end_time || b.end_time,
+                    bookingDate: b.booking_date || b.created_at,
+                    totalHours: Math.round(duration * 10) / 10, // Round to 1 decimal
+                    totalAmount: parseFloat(b.total_amount) || parseFloat(b.total_price) || 0,
+                    status: b.status || 'pending',
+                    // Payment Status Logic: If booking exists, payment is paid (unless explicitly pending)
+                    paymentStatus: b.payment_status === 'pending' ? 'pending' : 'paid',
+                    pickupLocation: b.pickup_location || '-',
+                    dropLocation: b.drop_location || '-',
+                    createdAt: b.created_at
+                };
+            })
+            .filter(Boolean); // Remove nulls
+
+        res.json({ bookings: formattedBookings });
+
+    } catch (error) {
+        console.error('Error fetching sponsor bookings:', error);
+        res.status(500).json({ error: 'Failed to fetch bookings' });
     }
 };
 

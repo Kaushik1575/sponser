@@ -31,6 +31,7 @@ router.patch('/sponsor/bikes/:id/availability', verifyToken, sponsorController.t
 router.patch('/sponsor/bikes/:id', verifyToken, sponsorController.updateVehicle);
 router.delete('/sponsor/bikes/:id', verifyToken, sponsorController.deleteVehicle);
 router.get('/sponsor/revenue', verifyToken, sponsorController.getRevenue);
+router.get('/sponsor/bookings', verifyToken, sponsorController.getBookings);
 
 // Withdrawal Routes (Sponsor)
 router.post('/sponsor/withdrawal/request', verifyToken, withdrawalController.createWithdrawalRequest);
