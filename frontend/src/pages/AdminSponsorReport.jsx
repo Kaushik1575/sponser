@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
 import { IndianRupee, PieChart, Wallet, CreditCard, Download, Eye, Calendar, Truck } from 'lucide-react';
 import toast from 'react-hot-toast';
+import api from '../services/api';
 
 const AdminSponsorReport = () => {
     const [reportData, setReportData] = useState([]);
@@ -21,8 +21,8 @@ const AdminSponsorReport = () => {
 
     const fetchReport = async () => {
         try {
-            // Use full URL if necessary or ensure proxy is set up
-            const response = await axios.get('http://localhost:3005/api/admin/sponsor-report');
+            // Use configured API service
+            const response = await api.get('/admin/sponsor-report');
             // Assuming response structure: { report: [], totals: {} }
             setReportData(response.data.report || []);
             setSummary(response.data.totals || {});

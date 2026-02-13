@@ -27,10 +27,12 @@ const Revenue = () => {
             } catch (error) {
                 console.error(error);
                 // Fallback Mock
+                // Fallback Mock
                 setOriginalData({
                     grossRevenue: 15400,
-                    commission: 1540,
-                    netEarnings: 13860,
+                    netEarnings: 10780, // 15400 - 30% - 0 withdrawals
+                    totalWithdrawn: 0,
+                    commission: 4620,
                     transactions: [
                         { id: 'TXN001', raw_date: '2023-10-25T10:00:00Z', date: '10/25/2023', amount: 1200, type: 'Credit', description: 'Booking payment', vehicle_name: 'Yamaha R15', vehicle_reg: 'WB-01-1234' },
                         { id: 'TXN002', raw_date: '2023-10-26T14:30:00Z', date: '10/26/2023', amount: 3500, type: 'Credit', description: 'Booking payment', vehicle_name: 'Royal Enfield', vehicle_reg: 'WB-02-5678' },
@@ -74,13 +76,23 @@ const Revenue = () => {
         });
 
         // 2. Calculate Summary
-        let gross = 0;
+        let totalEarnings = 0;
+        let totalWithdrawn = 0;
+
         activeTxns.forEach(t => {
-            if (t.type === 'Credit') gross += t.amount;
-            else gross -= Math.abs(t.amount); // Handle debits if any
+            if (t.type === 'Credit') {
+                totalEarnings += t.amount;
+            } else if (t.type === 'Debit') {
+                totalWithdrawn += Math.abs(t.amount);
+            }
         });
-        const commission = gross * 0.30;
-        const net = gross - commission;
+
+        // Commission is based on Earnings only
+        const commission = totalEarnings * 0.30;
+        const net = totalEarnings - commission - totalWithdrawn;
+
+        // Map to what UI expects
+        const gross = totalEarnings;
 
         // 3. Prepare Chart Data
         let chartData = [];
@@ -126,7 +138,7 @@ const Revenue = () => {
         // Pre-fill with known vehicles from original stats to ensure we show 0-revenue vehicles too (optional)
         // For accurate period stats, we construct from transactions
         activeTxns.forEach(t => {
-            if (!t.vehicle_name) return; // Skip if no vehicle info
+            if (!t.vehicle_name || t.type === 'Debit') return; // Skip if no vehicle info or is a Debit (Withdrawal)
 
             const key = t.vehicle_name + t.vehicle_reg;
             if (!vStatsMap.has(key)) {
@@ -150,7 +162,7 @@ const Revenue = () => {
 
         return {
             transactions: activeTxns,
-            summary: { gross, commission, net },
+            summary: { gross, commission, net, totalWithdrawn },
             chartData,
             vehicleStats: Array.from(vStatsMap.values())
         };
@@ -244,7 +256,7 @@ const Revenue = () => {
                 </div>
 
                 {/* Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between h-32 relative overflow-hidden group">
                         <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                             <DollarSign className="w-16 h-16 text-indigo-600" />
@@ -268,6 +280,17 @@ const Revenue = () => {
                             <h3 className="text-3xl font-bold text-gray-900 mt-1">- ₹{filteredData.summary.commission?.toLocaleString() || 0}</h3>
                         </div>
                         <p className="text-xs text-gray-400">Deducted automatically</p>
+                    </div>
+
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between h-32 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-4 opacity-10">
+                            <CreditCard className="w-16 h-16 text-orange-500" />
+                        </div>
+                        <div>
+                            <p className="text-gray-500 text-xs font-bold uppercase tracking-wider">Total Withdrawn</p>
+                            <h3 className="text-3xl font-bold text-gray-900 mt-1">₹{filteredData.summary.totalWithdrawn?.toLocaleString() || 0}</h3>
+                        </div>
+                        <p className="text-xs text-gray-400">Already paid out</p>
                     </div>
 
                     {/* Net */}

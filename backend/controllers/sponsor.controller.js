@@ -84,7 +84,7 @@ exports.getDashboard = async (req, res) => {
         const rejectedVehicles = vehicles.filter(v => v.status === 'rejected').length;
 
         // Fetch real revenue stats (using same source as Revenue page for consistency)
-        const { grossRevenue, transactions, vehicleStats } = await SponsorModel.getDetailedRevenueStats(userId);
+        const { grossRevenue, transactions, vehicleStats, netEarnings, totalWithdrawn } = await SponsorModel.getDetailedRevenueStats(userId);
 
         // Calculate Revenue Trend (Monthly for current year)
         const currentYear = new Date().getFullYear();
@@ -92,6 +92,8 @@ exports.getDashboard = async (req, res) => {
         const monthlyRevenue = monthsShort.map(m => ({ name: m, revenue: 0, bookings: 0 }));
 
         transactions.forEach(t => {
+            if (t.type === 'Debit') return; // Skip withdrawals for revenue/booking charts
+
             const d = new Date(t.raw_date || t.date);
             if (d.getFullYear() === currentYear) {
                 const monthIdx = d.getMonth();
@@ -115,10 +117,11 @@ exports.getDashboard = async (req, res) => {
             approvedVehicles,
             pendingVehicles,
             rejectedVehicles,
-            totalBookings: transactions.length, // Completed bookings only
+            totalBookings: transactions.filter(t => t.type !== 'Debit').length, // Filter out withdrawals
             totalRideHours,
             totalRevenue: grossRevenue,
-            netEarnings: grossRevenue * 0.70, // 70% to match Revenue page
+            netEarnings: netEarnings, // Use calculated net earnings (withdrawals deducted)
+            totalWithdrawn: totalWithdrawn || 0,
             revenueChart: monthlyRevenue,
             vehicleChart: topVehicles,
             recentVehicles: vehicles.slice(0, 5)
@@ -154,13 +157,15 @@ exports.getRevenue = async (req, res) => {
 
         // 70% to Sponsor, 30% to Platform
         const gross = stats.grossRevenue || 0;
-        const commission = gross * 0.30;
-        const net = gross - commission; // 70%
+        const commission = stats.commission || (gross * 0.30);
+        const net = stats.netEarnings || (gross - commission); // Use model calculation (deducts withdrawals)
+        const withdrawn = stats.totalWithdrawn || 0;
 
         res.json({
             grossRevenue: gross,
             commission: commission,
             netEarnings: net,
+            totalWithdrawn: withdrawn,
             transactions: stats.transactions || [],
             vehicleStats: stats.vehicleStats || []
         });

@@ -8,13 +8,15 @@ const app = express();
 const PORT = process.env.PORT || 3005;
 
 // Middleware
-app.use(cors({
-    origin: ['http://localhost:5173', 'http://localhost:5174'],
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-}));
+app.use(cors()); // Allow all origins for dev simplicity
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Request Logger
+app.use((req, res, next) => {
+    console.log(`📢 [REQUEST] ${req.method} ${req.url}`);
+    next();
+});
 
 // Routes
 app.use('/api', apiRoutes);

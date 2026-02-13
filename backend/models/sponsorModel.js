@@ -429,6 +429,18 @@ class SponsorModel {
             return { gross: 0, transactions: [], vehicleStats: [] };
         }
 
+        // 2.5 Fetch Withdrawals (Approved or Completed)
+        const { data: withdrawals, error: wError } = await supabase
+            .from('withdrawal_requests')
+            .select('*')
+            .eq('sponsor_id', sponsorId)
+            .in('status', ['approved', 'completed'])
+            .order('created_at', { ascending: false });
+
+        if (wError) {
+            console.error('Error fetching withdrawals:', wError);
+        }
+
         let grossRevenue = 0;
         const transactions = [];
 
@@ -495,8 +507,41 @@ class SponsorModel {
             }
         });
 
+        // Add Withdrawals to Transactions
+        if (withdrawals && withdrawals.length > 0) {
+            withdrawals.forEach(w => {
+                const wDate = new Date(w.created_at);
+                transactions.push({
+                    id: w.id,
+                    booking_id: `WTH-${w.id.toString().slice(0, 8)}`, // Shorten ID for display
+                    date: wDate.toLocaleDateString(),
+                    raw_date: wDate.toISOString(),
+                    amount: parseFloat(w.amount),
+                    type: 'Debit',
+                    description: `Withdrawal (${w.status})`,
+                    vehicle_id: null,
+                    vehicle_name: w.payment_method === 'upi' ? `UPI: ${w.upi_id}` : 'Bank Transfer',
+                    vehicle_image: null,
+                    vehicle_reg: '-',
+                    hours: 0
+                });
+            });
+        }
+
+        // Sort combined transactions by date descending
+        transactions.sort((a, b) => new Date(b.raw_date) - new Date(a.raw_date));
+
+        // Calculate All-Time Stats for Response (Required by Withdrawal Page)
+        const totalEarnings = grossRevenue;
+        const totalWithdrawn = withdrawals ? withdrawals.reduce((sum, w) => sum + parseFloat(w.amount), 0) : 0;
+        const commission = totalEarnings * 0.30;
+        const netEarnings = totalEarnings - commission - totalWithdrawn;
+
         return {
             grossRevenue,
+            netEarnings,
+            totalWithdrawn,
+            commission,
             transactions,
             vehicleStats: Array.from(vehicleMap.values())
         };

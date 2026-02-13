@@ -1,13 +1,12 @@
-import { useState, useEffect } from 'react';
-import { DollarSign, Building, Smartphone, Clock, CheckCircle, XCircle, Send, Filter, Search, User } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { DollarSign, Clock, CheckCircle, XCircle, Send, Search, User, FileText, ChevronRight } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
 const AdminWithdrawals = () => {
     const [requests, setRequests] = useState([]);
-    const [filteredRequests, setFilteredRequests] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [statusFilter, setStatusFilter] = useState('all');
+    const [activeTab, setActiveTab] = useState('pending');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -19,46 +18,60 @@ const AdminWithdrawals = () => {
         fetchWithdrawalRequests();
     }, []);
 
-    useEffect(() => {
-        filterRequests();
-    }, [requests, statusFilter, searchTerm]);
-
     const fetchWithdrawalRequests = async () => {
         try {
             setLoading(true);
-            console.log('🔍 Fetching withdrawal requests from API...');
             const response = await api.get('/admin/withdrawal/requests');
-            console.log('✅ API Response:', response.data);
-            console.log('📊 Number of requests:', response.data.requests?.length || 0);
             setRequests(response.data.requests || []);
         } catch (error) {
-            console.error('❌ Error fetching withdrawal requests:', error);
-            console.error('Error details:', error.response?.data);
+            console.error('Error fetching withdrawal requests:', error);
             toast.error('Failed to load withdrawal requests');
         } finally {
             setLoading(false);
         }
     };
 
-    const filterRequests = () => {
+    const stats = useMemo(() => {
+        const pending = requests.filter(r => r.status === 'pending');
+        const approved = requests.filter(r => r.status === 'approved');
+        const completed = requests.filter(r => r.status === 'completed');
+        const rejected = requests.filter(r => r.status === 'rejected');
+
+        return {
+            pendingCount: pending.length,
+            approvedCount: approved.length,
+            historyCount: completed.length + rejected.length,
+            pendingAmount: pending.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0),
+            approvedAmount: approved.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0),
+            totalPaid: completed.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0)
+        };
+    }, [requests]);
+
+    const filteredRequests = useMemo(() => {
         let filtered = [...requests];
 
-        // Filter by status
-        if (statusFilter !== 'all') {
-            filtered = filtered.filter(req => req.status === statusFilter);
+        // Filter by Tab
+        if (activeTab === 'pending') {
+            filtered = filtered.filter(r => r.status === 'pending');
+        } else if (activeTab === 'approved') {
+            filtered = filtered.filter(r => r.status === 'approved');
+        } else if (activeTab === 'history') {
+            filtered = filtered.filter(r => ['completed', 'rejected'].includes(r.status));
         }
+        // 'all' includes everything
 
-        // Filter by search term
+        // Filter by Search
         if (searchTerm) {
+            const lowerSearch = searchTerm.toLowerCase();
             filtered = filtered.filter(req =>
-                req.sponsors?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                req.sponsors?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                req.id.toString().includes(searchTerm)
+                req.sponsors?.full_name?.toLowerCase().includes(lowerSearch) ||
+                req.sponsors?.email?.toLowerCase().includes(lowerSearch) ||
+                req.id.toString().includes(lowerSearch)
             );
         }
 
-        setFilteredRequests(filtered);
-    };
+        return filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    }, [requests, activeTab, searchTerm]);
 
     const handleAction = (request, action) => {
         setSelectedRequest(request);
@@ -80,7 +93,11 @@ const AdminWithdrawals = () => {
 
             await api.patch(`/admin/withdrawal/requests/${selectedRequest.id}`, updateData);
 
-            toast.success(`Request ${actionType} successfully!`);
+            if (actionType === 'completed') {
+                toast.success('Payment processed & Email sent to Sponsor!');
+            } else {
+                toast.success(`Request ${actionType} successfully!`);
+            }
             setShowConfirmModal(false);
             setSelectedRequest(null);
             fetchWithdrawalRequests();
@@ -91,335 +108,316 @@ const AdminWithdrawals = () => {
     };
 
     const getStatusBadge = (status) => {
-        const statusConfig = {
-            pending: { icon: Clock, color: 'bg-yellow-100 text-yellow-700 border-yellow-300', text: 'Pending' },
-            approved: { icon: CheckCircle, color: 'bg-blue-100 text-blue-700 border-blue-300', text: 'Approved' },
-            completed: { icon: CheckCircle, color: 'bg-green-100 text-green-700 border-green-300', text: 'Completed' },
-            rejected: { icon: XCircle, color: 'bg-red-100 text-red-700 border-red-300', text: 'Rejected' }
-        };
+        const config = {
+            pending: { icon: Clock, color: 'text-yellow-600 bg-yellow-50 border-yellow-200', text: 'Pending' },
+            approved: { icon: CheckCircle, color: 'text-blue-600 bg-blue-50 border-blue-200', text: 'Approved' },
+            completed: { icon: CheckCircle, color: 'text-green-600 bg-green-50 border-green-200', text: 'Paid' },
+            rejected: { icon: XCircle, color: 'text-red-600 bg-red-50 border-red-200', text: 'Rejected' },
+        }[status] || { icon: Clock, color: 'text-gray-600 bg-gray-50', text: status };
 
-        const config = statusConfig[status] || statusConfig.pending;
         const Icon = config.icon;
 
         return (
-            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold border ${config.color}`}>
-                <Icon className="w-3 h-3" />
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${config.color}`}>
+                <Icon className="w-3.5 h-3.5" />
                 {config.text}
             </span>
         );
     };
 
-    const stats = {
-        total: requests.length,
-        pending: requests.filter(r => r.status === 'pending').length,
-        approved: requests.filter(r => r.status === 'approved').length,
-        completed: requests.filter(r => r.status === 'completed').length,
-        rejected: requests.filter(r => r.status === 'rejected').length,
-        totalAmount: requests.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0)
-    };
+    const tabs = [
+        { id: 'pending', label: 'Pending', count: stats.pendingCount },
+        { id: 'approved', label: 'Approved (To Pay)', count: stats.approvedCount },
+        { id: 'history', label: 'History', count: stats.historyCount },
+        { id: 'all', label: 'All Requests', count: requests.length },
+    ];
 
     return (
-        <div className="p-6">
-            <div className="max-w-7xl mx-auto">
+        <div className="p-6 bg-gray-50 min-h-screen">
+            <div className="max-w-7xl mx-auto space-y-6">
+
                 {/* Header */}
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-800 mb-2">Withdrawal Management</h1>
-                    <p className="text-gray-600">Review and process sponsor withdrawal requests</p>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">Sponsor Withdrawals</h1>
+                    </div>
                 </div>
 
-                {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-yellow-500">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-600 mb-1">Pending</p>
-                                <h3 className="text-3xl font-bold text-gray-800">{stats.pending}</h3>
-                            </div>
-                            <div className="bg-yellow-100 p-3 rounded-full">
-                                <Clock className="w-6 h-6 text-yellow-600" />
-                            </div>
+                {/* Summary Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="bg-white p-5 rounded-xl shadow-sm border border-orange-100 flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Pending Requests</p>
+                            <h3 className="text-2xl font-bold text-gray-900">{stats.pendingCount}</h3>
+                        </div>
+                        <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center text-orange-500">
+                            <Clock className="w-5 h-5" />
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-blue-500">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-600 mb-1">Approved</p>
-                                <h3 className="text-3xl font-bold text-gray-800">{stats.approved}</h3>
-                            </div>
-                            <div className="bg-blue-100 p-3 rounded-full">
-                                <CheckCircle className="w-6 h-6 text-blue-600" />
-                            </div>
+                    <div className="bg-white p-5 rounded-xl shadow-sm border border-blue-100 flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">To Be Paid</p>
+                            <h3 className="text-2xl font-bold text-gray-900">₹{stats.approvedAmount.toLocaleString()}</h3>
+                        </div>
+                        <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                            <div className="font-bold text-sm">Rs</div>
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-green-500">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-gray-600 mb-1">Completed</p>
-                                <h3 className="text-3xl font-bold text-gray-800">{stats.completed}</h3>
-                            </div>
-                            <div className="bg-green-100 p-3 rounded-full">
-                                <CheckCircle className="w-6 h-6 text-green-600" />
-                            </div>
+                    <div className="bg-white p-5 rounded-xl shadow-sm border border-green-100 flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Total Paid</p>
+                            <h3 className="text-2xl font-bold text-gray-900">₹{stats.totalPaid.toLocaleString()}</h3>
+                        </div>
+                        <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center text-green-600">
+                            <CheckCircle className="w-5 h-5" />
                         </div>
                     </div>
 
-                    <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl shadow-lg p-6 text-white">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-purple-100 text-sm mb-1">Total Amount</p>
-                                <h3 className="text-2xl font-bold">₹{stats.totalAmount.toLocaleString('en-IN')}</h3>
-                            </div>
-                            <div className="bg-white/20 p-3 rounded-full backdrop-blur-sm">
-                                <DollarSign className="w-6 h-6" />
-                            </div>
+                    <div className="bg-white p-5 rounded-xl shadow-sm border border-indigo-100 flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">All Time Total</p>
+                            <h3 className="text-2xl font-bold text-gray-900">₹{(stats.totalPaid + stats.approvedAmount + stats.pendingAmount).toLocaleString()}</h3>
+                        </div>
+                        <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">
+                            <DollarSign className="w-5 h-5" />
                         </div>
                     </div>
                 </div>
 
-                {/* Filters */}
-                <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-                    <div className="flex flex-col md:flex-row gap-4">
-                        {/* Search */}
-                        <div className="flex-1 relative">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                {/* Main Content Area */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+
+                    {/* Tabs & Search */}
+                    <div className="border-b border-gray-100 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex bg-gray-100/50 p-1 rounded-lg w-fit overflow-x-auto">
+                            {tabs.map((tab) => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === tab.id
+                                        ? 'bg-white text-gray-900 shadow-sm'
+                                        : 'text-gray-500 hover:text-gray-700'
+                                        }`}
+                                >
+                                    {tab.label}
+                                    {tab.count > 0 && (
+                                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${activeTab === tab.id ? 'bg-gray-100 text-gray-700' : 'bg-gray-200 text-gray-600'
+                                            }`}>
+                                            {tab.count}
+                                        </span>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="relative w-full md:w-64">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="Search by sponsor name, email, or request ID..."
+                                placeholder="Search requests..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all"
+                                className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                             />
                         </div>
-
-                        {/* Status Filter */}
-                        <div className="relative">
-                            <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                            <select
-                                value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value)}
-                                className="pl-12 pr-8 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all appearance-none bg-white cursor-pointer min-w-[200px]"
-                            >
-                                <option value="all">All Status</option>
-                                <option value="pending">Pending</option>
-                                <option value="approved">Approved</option>
-                                <option value="completed">Completed</option>
-                                <option value="rejected">Rejected</option>
-                            </select>
-                        </div>
                     </div>
-                </div>
 
-                {/* Requests List */}
-                <div className="space-y-4">
-                    {loading ? (
-                        <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
-                            <div className="animate-spin w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-                            <p className="text-gray-600">Loading withdrawal requests...</p>
-                        </div>
-                    ) : filteredRequests.length === 0 ? (
-                        <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
-                            <XCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                            <h3 className="text-xl font-semibold text-gray-800 mb-2">No Requests Found</h3>
-                            <p className="text-gray-600">No withdrawal requests match your filters.</p>
-                        </div>
-                    ) : (
-                        filteredRequests.map((request) => (
-                            <div key={request.id} className="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition-all">
-                                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-                                    {/* Left Section - Request Info */}
-                                    <div className="flex-1">
-                                        <div className="flex items-start justify-between mb-4">
-                                            <div>
-                                                <div className="flex items-center gap-3 mb-2">
-                                                    <div className="bg-purple-100 p-2 rounded-full">
-                                                        <User className="w-5 h-5 text-purple-600" />
+                    {/* Table Heading */}
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead className="bg-gray-50/50 text-gray-500 text-xs font-bold uppercase tracking-wider border-b border-gray-100">
+                                <tr>
+                                    <th className="px-6 py-4">Date & Time</th>
+                                    <th className="px-6 py-4">Sponsor Details</th>
+                                    <th className="px-6 py-4">Amount</th>
+                                    <th className="px-6 py-4">Method</th>
+                                    <th className="px-6 py-4">Status</th>
+                                    <th className="px-6 py-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                                {loading ? (
+                                    <tr>
+                                        <td colSpan="6" className="px-6 py-12 text-center">
+                                            <div className="animate-spin w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full mx-auto"></div>
+                                        </td>
+                                    </tr>
+                                ) : filteredRequests.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="6" className="px-6 py-12 text-center text-gray-400">
+                                            <div className="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
+                                                <Search className="w-8 h-8 text-gray-300" />
+                                            </div>
+                                            <p className="font-medium">No {activeTab} requests found</p>
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    filteredRequests.map((req) => (
+                                        <tr key={req.id} className="hover:bg-gray-50/50 transition-colors group">
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-semibold text-gray-900">
+                                                        {new Date(req.created_at).toLocaleDateString()}
+                                                    </span>
+                                                    <span className="text-xs text-gray-500">
+                                                        {new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-xs shrink-0">
+                                                        {req.sponsors?.full_name?.charAt(0) || 'U'}
                                                     </div>
                                                     <div>
-                                                        <h3 className="text-lg font-bold text-gray-800">
-                                                            {request.sponsors?.full_name || 'Unknown Sponsor'}
-                                                        </h3>
-                                                        <p className="text-sm text-gray-500">{request.sponsors?.email}</p>
+                                                        <p className="text-sm font-medium text-gray-900">{req.sponsors?.full_name || 'Unknown'}</p>
+                                                        <p className="text-xs text-gray-500">{req.sponsors?.email}</p>
                                                     </div>
                                                 </div>
-                                                <p className="text-xs text-gray-400 ml-12">
-                                                    Request ID: #{request.id} • {new Date(request.created_at).toLocaleDateString('en-IN', {
-                                                        year: 'numeric',
-                                                        month: 'short',
-                                                        day: 'numeric',
-                                                        hour: '2-digit',
-                                                        minute: '2-digit'
-                                                    })}
-                                                </p>
-                                            </div>
-                                            {getStatusBadge(request.status)}
-                                        </div>
-
-                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-xl">
-                                            <div>
-                                                <p className="text-xs text-gray-500 mb-1">Amount</p>
-                                                <p className="text-xl font-bold text-purple-600">
-                                                    ₹{parseFloat(request.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                                </p>
-                                            </div>
-
-                                            <div>
-                                                <p className="text-xs text-gray-500 mb-1">Payment Method</p>
-                                                <div className="flex items-center gap-2">
-                                                    {request.payment_method === 'bank' ? (
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className="text-sm font-bold text-gray-900">₹{parseFloat(req.amount).toLocaleString()}</span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className="text-xs font-semibold px-2 py-1 bg-gray-100 text-gray-600 rounded">
+                                                    {req.payment_method === 'upi' ? 'UPI' : 'Bank Transfer'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                {getStatusBadge(req.status)}
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    {req.status === 'pending' && (
                                                         <>
-                                                            <Building className="w-4 h-4 text-gray-600" />
-                                                            <span className="font-semibold text-gray-800">Bank</span>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <Smartphone className="w-4 h-4 text-gray-600" />
-                                                            <span className="font-semibold text-gray-800">UPI</span>
+                                                            <button
+                                                                onClick={() => handleAction(req, 'approved')}
+                                                                className="p-1.5 hover:bg-green-50 text-green-600 rounded-md transition-colors"
+                                                                title="Approve"
+                                                            >
+                                                                <CheckCircle className="w-5 h-5" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleAction(req, 'rejected')}
+                                                                className="p-1.5 hover:bg-red-50 text-red-600 rounded-md transition-colors"
+                                                                title="Reject"
+                                                            >
+                                                                <XCircle className="w-5 h-5" />
+                                                            </button>
                                                         </>
                                                     )}
+                                                    {req.status === 'approved' && (
+                                                        <button
+                                                            onClick={() => handleAction(req, 'completed')}
+                                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-md hover:bg-indigo-700 transition-all shadow-sm"
+                                                        >
+                                                            <Send className="w-3.5 h-3.5" />
+                                                            Process Payment
+                                                        </button>
+                                                    )}
+                                                    {req.status !== 'pending' && req.status !== 'approved' && (
+                                                        <button
+                                                            className="text-gray-400 cursor-default"
+                                                            disabled
+                                                        >
+                                                            <ChevronRight className="w-5 h-5" />
+                                                        </button>
+                                                    )}
                                                 </div>
-                                            </div>
-
-                                            <div>
-                                                <p className="text-xs text-gray-500 mb-1">Contact</p>
-                                                <p className="text-sm font-medium text-gray-800">
-                                                    {request.sponsors?.phone_number || 'N/A'}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {/* Payment Details */}
-                                        <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
-                                            <p className="text-xs text-blue-700 font-semibold mb-2">Payment Details</p>
-                                            {request.payment_method === 'bank' ? (
-                                                <div className="space-y-1 text-sm">
-                                                    <p><strong>Account Holder:</strong> {request.account_holder_name}</p>
-                                                    <p><strong>Account Number:</strong> {request.bank_account_number}</p>
-                                                    <p><strong>IFSC Code:</strong> {request.ifsc_code}</p>
-                                                </div>
-                                            ) : (
-                                                <div className="text-sm">
-                                                    <p><strong>UPI ID:</strong> {request.upi_id}</p>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {request.transaction_reference && (
-                                            <div className="mt-4 p-4 bg-green-50 rounded-xl border border-green-200">
-                                                <p className="text-xs text-green-700 font-semibold mb-1">Transaction Reference</p>
-                                                <p className="text-sm font-mono text-green-800">{request.transaction_reference}</p>
-                                            </div>
-                                        )}
-
-                                        {request.admin_notes && (
-                                            <div className="mt-4 p-4 bg-gray-100 rounded-xl">
-                                                <p className="text-xs text-gray-600 font-semibold mb-1">Admin Notes</p>
-                                                <p className="text-sm text-gray-700">{request.admin_notes}</p>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Right Section - Actions */}
-                                    {request.status === 'pending' && (
-                                        <div className="flex flex-col gap-3 lg:w-48">
-                                            <button
-                                                onClick={() => handleAction(request, 'approved')}
-                                                className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-all"
-                                            >
-                                                <CheckCircle className="w-4 h-4" />
-                                                Approve
-                                            </button>
-                                            <button
-                                                onClick={() => handleAction(request, 'rejected')}
-                                                className="flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-all"
-                                            >
-                                                <XCircle className="w-4 h-4" />
-                                                Reject
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    {request.status === 'approved' && (
-                                        <div className="lg:w-48">
-                                            <button
-                                                onClick={() => handleAction(request, 'completed')}
-                                                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all"
-                                            >
-                                                <Send className="w-4 h-4" />
-                                                Mark Completed
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        ))
-                    )}
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
             {/* Confirmation Modal */}
             {showConfirmModal && selectedRequest && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
-                        <h2 className="text-2xl font-bold text-gray-800 mb-4">
-                            Confirm {actionType.charAt(0).toUpperCase() + actionType.slice(1)}
-                        </h2>
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 anime-fade-in">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden transform transition-all scale-100">
+                        <div className={`h-2 w-full ${actionType === 'rejected' ? 'bg-red-500' : 'bg-indigo-600'
+                            }`}></div>
 
-                        <div className="mb-6 p-4 bg-gray-50 rounded-xl">
-                            <p className="text-sm text-gray-600 mb-2">Request Details:</p>
-                            <p className="font-semibold text-gray-800">
-                                {selectedRequest.sponsors?.full_name}
+                        <div className="p-6">
+                            <h2 className="text-xl font-bold text-gray-900 mb-2">
+                                Confirm {actionType === 'completed' ? 'Payment' : actionType.charAt(0).toUpperCase() + actionType.slice(1)}
+                            </h2>
+                            <p className="text-sm text-gray-500 mb-6">
+                                Please review the details before proceeding. This action cannot be undone.
                             </p>
-                            <p className="text-2xl font-bold text-purple-600 mt-2">
-                                ₹{parseFloat(selectedRequest.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                            </p>
-                        </div>
 
-                        {actionType === 'completed' && (
-                            <div className="mb-4">
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    Transaction Reference
+                            <div className="bg-gray-50 rounded-lg p-4 mb-6 space-y-3 border border-gray-100">
+                                <div className="flex justify-between">
+                                    <span className="text-xs font-medium text-gray-500">Amount</span>
+                                    <span className="text-sm font-bold text-gray-900">₹{parseFloat(selectedRequest.amount).toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-xs font-medium text-gray-500">Sponsor</span>
+                                    <span className="text-sm font-medium text-gray-900">{selectedRequest.sponsors?.full_name}</span>
+                                </div>
+                                <div className="border-t border-gray-200 pt-3">
+                                    <span className="text-xs font-medium text-gray-500 block mb-1">Payment Details</span>
+                                    {selectedRequest.payment_method === 'upi' ? (
+                                        <p className="text-sm font-mono bg-white border border-gray-200 p-2 rounded text-gray-700">{selectedRequest.upi_id}</p>
+                                    ) : (
+                                        <div className="text-sm bg-white border border-gray-200 p-2 rounded space-y-1">
+                                            <p><span className="text-gray-500 text-xs">Acc:</span> <span className="font-mono text-gray-700">{selectedRequest.bank_account_number}</span></p>
+                                            <p><span className="text-gray-500 text-xs">IFSC:</span> <span className="font-mono text-gray-700">{selectedRequest.ifsc_code}</span></p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {actionType === 'completed' && (
+                                <div className="mb-4">
+                                    <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
+                                        Transaction Reference ID
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={transactionRef}
+                                        onChange={(e) => setTransactionRef(e.target.value)}
+                                        placeholder="e.g. TXN123456789"
+                                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-sm transition-all"
+                                    />
+                                </div>
+                            )}
+
+                            <div className="mb-6">
+                                <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">
+                                    Admin Notes (Optional)
                                 </label>
-                                <input
-                                    type="text"
-                                    value={transactionRef}
-                                    onChange={(e) => setTransactionRef(e.target.value)}
-                                    placeholder="Enter transaction reference number"
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all"
+                                <textarea
+                                    value={adminNotes}
+                                    onChange={(e) => setAdminNotes(e.target.value)}
+                                    placeholder="Add internal notes..."
+                                    rows="3"
+                                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-sm transition-all resize-none"
                                 />
                             </div>
-                        )}
 
-                        <div className="mb-6">
-                            <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                Admin Notes (Optional)
-                            </label>
-                            <textarea
-                                value={adminNotes}
-                                onChange={(e) => setAdminNotes(e.target.value)}
-                                placeholder="Add any notes about this action..."
-                                rows="3"
-                                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all resize-none"
-                            />
-                        </div>
-
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => setShowConfirmModal(false)}
-                                className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={confirmAction}
-                                className={`flex-1 px-4 py-3 text-white rounded-xl font-semibold transition-all ${actionType === 'rejected'
-                                    ? 'bg-red-600 hover:bg-red-700'
-                                    : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:shadow-lg'
-                                    }`}
-                            >
-                                Confirm
-                            </button>
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    onClick={() => setShowConfirmModal(false)}
+                                    className="flex-1 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-50 transition-all"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={confirmAction}
+                                    className={`flex-1 px-4 py-2.5 text-white rounded-lg text-sm font-semibold shadow-sm transition-all ${actionType === 'rejected'
+                                        ? 'bg-red-600 hover:bg-red-700'
+                                        : 'bg-indigo-600 hover:bg-indigo-700'
+                                        }`}
+                                >
+                                    Confirm {actionType === 'completed' ? 'Payment' : actionType.charAt(0).toUpperCase() + actionType.slice(1)}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -11,6 +11,7 @@ const Dashboard = () => {
         totalRideHours: 0,
         totalRevenue: 0,
         netEarnings: 0,
+        totalWithdrawn: 0,
         revenueChart: [],
         vehicleChart: []
     });
@@ -32,6 +33,7 @@ const Dashboard = () => {
                     totalRideHours: data.totalRideHours || 0,
                     totalRevenue: data.totalRevenue || 0,
                     netEarnings: data.netEarnings || 0,
+                    totalWithdrawn: data.totalWithdrawn || 0,
                     revenueChart: data.revenueChart || [],
                     vehicleChart: data.vehicleChart || []
                 });
@@ -46,6 +48,7 @@ const Dashboard = () => {
                     totalRideHours: 0,
                     totalRevenue: 0,
                     netEarnings: 0,
+                    totalWithdrawn: 0,
                     revenueChart: [],
                     vehicleChart: []
                 });
@@ -71,7 +74,7 @@ const Dashboard = () => {
             <h1 className="text-2xl font-bold text-gray-800">Dashboard Overview</h1>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
                 <StatCard
                     title="Total Vehicles"
                     value={stats.totalVehicles || 0}
@@ -85,6 +88,13 @@ const Dashboard = () => {
                     icon={DollarSign}
                     color="text-green-600"
                     bg="bg-green-100"
+                />
+                <StatCard
+                    title="Total Withdrawn"
+                    value={`₹${(stats.totalWithdrawn || 0).toLocaleString()}`}
+                    icon={CreditCard}
+                    color="text-orange-600"
+                    bg="bg-orange-100"
                 />
                 <StatCard
                     title="Net Earnings"
@@ -146,22 +156,28 @@ const Dashboard = () => {
                     <h2 className="text-lg font-semibold mb-4 text-gray-700">Most Rented Vehicles</h2>
                     <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={stats.vehicleChart}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={60}
-                                    outerRadius={80}
-                                    paddingAngle={5}
-                                    dataKey="value"
-                                >
-                                    {stats.vehicleChart.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                    ))}
-                                </Pie>
-                                <Tooltip formatter={(value) => [`₹${value}`, "Revenue"]} />
-                            </PieChart>
+                            {stats.vehicleChart && stats.vehicleChart.length > 0 ? (
+                                <PieChart>
+                                    <Pie
+                                        data={stats.vehicleChart}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={60}
+                                        outerRadius={80}
+                                        paddingAngle={5}
+                                        dataKey="value"
+                                    >
+                                        {stats.vehicleChart.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip formatter={(value) => [`₹${value}`, "Revenue"]} />
+                                </PieChart>
+                            ) : (
+                                <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+                                    No vehicle data available
+                                </div>
+                            )}
                         </ResponsiveContainer>
                         <div className="mt-4 flex flex-wrap gap-2 justify-center">
                             {stats.vehicleChart.map((entry, index) => (

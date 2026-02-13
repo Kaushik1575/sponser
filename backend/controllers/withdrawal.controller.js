@@ -135,11 +135,15 @@ const getAllWithdrawalRequests = async (req, res) => {
     }
 };
 
+const { sendWithdrawalPaidEmail } = require('../config/sponsorEmailService');
+
 // Update withdrawal request status (Admin)
 const updateWithdrawalStatus = async (req, res) => {
     try {
         const { requestId } = req.params;
         const { status, adminNotes, transactionReference } = req.body;
+
+        console.log(`🔄 [UPDATE] Request ${requestId} status change to: ${status}`);
 
         if (!['approved', 'rejected', 'completed'].includes(status)) {
             return res.status(400).json({ error: 'Invalid status' });
@@ -181,6 +185,34 @@ const updateWithdrawalStatus = async (req, res) => {
         if (error) {
             console.error('Error updating withdrawal request:', error);
             return res.status(500).json({ error: 'Failed to update withdrawal request' });
+        }
+
+        // Send Email Notification if Completed (Paid)
+        if (status === 'completed') {
+            try {
+                const sponsorEmail = data.sponsors?.email;
+                const sponsorName = data.sponsors?.full_name || 'Partner';
+
+                if (sponsorEmail) {
+                    await sendWithdrawalPaidEmail(
+                        sponsorEmail,
+                        sponsorName,
+                        {
+                            amount: data.amount,
+                            transactionReference: data.transaction_reference || transactionReference,
+                            date: data.processed_at || new Date(),
+                            paymentMethod: data.payment_method,
+                            bankName: null
+                        }
+                    );
+                    console.log(`📧 [EMAIL] Withdrawal confirmation sent to ${sponsorEmail}`);
+                } else {
+                    console.warn('⚠️ [EMAIL] Sponsor email not found, skipping notification');
+                }
+            } catch (emailErr) {
+                console.error('❌ [EMAIL] Failed to send withdrawal email:', emailErr);
+                // We do NOT block the response here, just log the error
+            }
         }
 
         res.json({
