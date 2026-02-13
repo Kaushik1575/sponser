@@ -57,15 +57,17 @@ const Topbar = ({ onToggleSidebar }) => {
                     <div className="hidden md:flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-brand-500 to-cyan-400 p-0.5">
                             <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden">
-                                {user.profilePicture ? (
-                                    <img src={user.profilePicture} alt="Profile" className="w-full h-full object-cover" />
+                                {(user.profilePicture || user.profile_picture) ? (
+                                    <img src={user.profilePicture || user.profile_picture} alt="Profile" className="w-full h-full object-cover" />
                                 ) : (
                                     <User className="w-6 h-6 text-gray-400 group-hover:text-brand-500 transition-colors" />
                                 )}
                             </div>
                         </div>
                         <div onClick={() => navigate('/profile')} className="hidden lg:block text-left">
-                            <p className="text-sm font-semibold text-gray-700 group-hover:text-brand-600 transition-colors">{user.fullName || 'User'}</p>
+                            <p className="text-sm font-semibold text-gray-700 group-hover:text-brand-600 transition-colors">
+                                {user.fullName || user.full_name || 'Sponsor'}
+                            </p>
                             <p className="text-xs text-gray-500">View Profile</p>
                         </div>
                         <button

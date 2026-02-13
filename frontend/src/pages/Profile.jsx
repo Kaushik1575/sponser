@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, Mail, Phone, MapPin, Camera, Save } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Camera, Save, Edit2, Copy, Check } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -8,6 +8,7 @@ const Profile = () => {
     const [loading, setLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [copied, setCopied] = useState(false);
     const [formData, setFormData] = useState({
         fullName: '',
         email: '',
@@ -56,13 +57,11 @@ const Profile = () => {
         const file = e.target.files[0];
         if (!file) return;
 
-        // Validate file type
         if (!file.type.startsWith('image/')) {
             toast.error('Please select an image file');
             return;
         }
 
-        // Validate file size (max 5MB)
         if (file.size > 5 * 1024 * 1024) {
             toast.error('Image size should be less than 5MB');
             return;
@@ -82,8 +81,6 @@ const Profile = () => {
             toast.success('Profile picture updated successfully!');
             const updatedUser = response.data.sponsor;
             setUser(updatedUser);
-
-            // Update localStorage
             localStorage.setItem('user', JSON.stringify(updatedUser));
         } catch (error) {
             console.error('Error uploading profile picture:', error);
@@ -101,7 +98,6 @@ const Profile = () => {
             setUser(response.data.sponsor || response.data);
             setIsEditing(false);
 
-            // Update localStorage
             const updatedUser = response.data.sponsor || response.data;
             localStorage.setItem('user', JSON.stringify(updatedUser));
         } catch (error) {
@@ -110,12 +106,33 @@ const Profile = () => {
         }
     };
 
+    const copyToClipboard = () => {
+        navigator.clipboard.writeText(user.id);
+        setCopied(true);
+        toast.success('Sponsor ID copied!');
+        setTimeout(() => setCopied(false), 2000);
+    };
+
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="text-center">
-                    <div className="w-12 h-12 border-4 border-brand-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-gray-600">Loading profile...</p>
+            <div style={{
+                minHeight: '100vh',
+                background: '#f8f9fa',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+            }}>
+                <div style={{ textAlign: 'center' }}>
+                    <div style={{
+                        width: '60px',
+                        height: '60px',
+                        border: '4px solid white',
+                        borderTopColor: 'transparent',
+                        borderRadius: '50%',
+                        animation: 'spin 1s linear infinite',
+                        margin: '0 auto 20px'
+                    }}></div>
+                    <p style={{ color: 'white', fontSize: '18px', fontWeight: '500' }}>Loading profile...</p>
                 </div>
             </div>
         );
@@ -123,9 +140,22 @@ const Profile = () => {
 
     if (!user) {
         return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="text-center">
-                    <p className="text-red-500 text-lg">User not found. Please login again.</p>
+            <div style={{
+                minHeight: '100vh',
+                background: '#f8f9fa',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+            }}>
+                <div style={{
+                    background: 'white',
+                    padding: '40px',
+                    borderRadius: '20px',
+                    boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+                }}>
+                    <p style={{ color: '#e74c3c', fontSize: '18px', fontWeight: '600' }}>
+                        User not found. Please login again.
+                    </p>
                 </div>
             </div>
         );
@@ -133,428 +163,550 @@ const Profile = () => {
 
     return (
         <div style={{
-            background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)',
             minHeight: '100vh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px',
-            fontFamily: "'Inter', sans-serif"
+            background: '#f8f9fa',
+            padding: '40px 20px',
+            paddingBottom: '100px'
         }}>
-            <div style={{
-                maxWidth: '850px',
-                width: '100%',
-                backgroundColor: '#ffffff',
-                borderRadius: '16px',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-                padding: '40px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '20px'
-            }}>
-                {/* Header */}
-                <div style={{ textAlign: 'center', marginBottom: '10px' }}>
-                    {/* Hidden file input */}
-                    <input
-                        type="file"
-                        id="profilePictureInput"
-                        accept="image/*"
-                        onChange={handleProfilePictureUpload}
-                        style={{ display: 'none' }}
-                    />
-
-                    <div
-                        style={{
-                            width: '120px',
-                            height: '120px',
-                            margin: '0 auto 20px',
-                            borderRadius: '50%',
-                            background: user?.profile_picture
-                                ? `url(${user.profile_picture}) center/cover`
-                                : 'linear-gradient(135deg, #0f4c81 0%, #2ecc71 100%)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: 'white',
-                            fontSize: '48px',
-                            fontWeight: 'bold',
-                            boxShadow: '0 4px 12px rgba(15, 76, 129, 0.3)',
-                            position: 'relative',
-                            overflow: 'hidden',
-                            cursor: uploading ? 'wait' : 'pointer',
-                            transition: 'transform 0.3s',
-                            border: uploading ? '3px solid #2ecc71' : 'none'
-                        }}
-                        onClick={() => !uploading && document.getElementById('profilePictureInput').click()}
-                        onMouseEnter={(e) => !uploading && (e.currentTarget.style.transform = 'scale(1.05)')}
-                        onMouseLeave={(e) => !uploading && (e.currentTarget.style.transform = 'scale(1)')}
-                    >
-                        {uploading ? (
-                            <div style={{
-                                position: 'absolute',
-                                inset: 0,
-                                background: 'rgba(0,0,0,0.5)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                flexDirection: 'column',
-                                gap: '8px'
-                            }}>
-                                <div style={{
-                                    width: '30px',
-                                    height: '30px',
-                                    border: '3px solid white',
-                                    borderTopColor: 'transparent',
-                                    borderRadius: '50%',
-                                    animation: 'spin 1s linear infinite'
-                                }}></div>
-                                <span style={{ fontSize: '12px', fontWeight: '500' }}>Uploading...</span>
-                            </div>
-                        ) : !user?.profile_picture && (
-                            formData.fullName?.charAt(0)?.toUpperCase() || 'S'
-                        )}
-
-                        <div style={{
-                            position: 'absolute',
-                            bottom: '0',
-                            right: '0',
-                            background: uploading ? '#95a5a6' : '#2ecc71',
-                            width: '36px',
-                            height: '36px',
-                            borderRadius: '50%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            border: '3px solid white',
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
-                        }}>
-                            <Camera size={16} color="white" />
-                        </div>
-                    </div>
-                    <h2 style={{ fontSize: '28px', color: '#2c3e50', fontWeight: 'bold', margin: '0 0 8px 0' }}>
-                        {isEditing ? 'Edit Profile' : 'My Profile'}
-                    </h2>
-                    <p style={{ color: '#7f8c8d', margin: 0 }}>
-                        {isEditing ? 'Update your personal information' : 'Sponsor Account Details'}
+            <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+                {/* Animated Header */}
+                <div style={{
+                    textAlign: 'center',
+                    marginBottom: '40px',
+                    animation: 'fadeInDown 0.6s ease-out'
+                }}>
+                    <h1 style={{
+                        fontSize: '42px',
+                        fontWeight: '800',
+                        color: '#2c3e50',
+                        marginBottom: '10px',
+                        textShadow: 'none'
+                    }}>
+                        ✨ My Profile
+                    </h1>
+                    <p style={{
+                        fontSize: '18px',
+                        color: '#7f8c8d',
+                        fontWeight: '500'
+                    }}>
+                        Manage your account and personal information
                     </p>
                 </div>
 
-                <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                    {/* Full Name */}
-                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                        <label htmlFor="fullName" style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            marginBottom: '8px',
-                            fontWeight: '700',
-                            color: '#2c3e50',
-                            fontSize: '16px'
-                        }}>
-                            <User size={18} color="#2ecc71" />
-                            Full Name
-                        </label>
-                        <input
-                            type="text"
-                            id="fullName"
-                            value={formData.fullName}
-                            onChange={handleChange}
-                            disabled={!isEditing}
-                            placeholder="Enter your full name"
-                            style={{
-                                width: '100%',
-                                padding: '12px',
-                                border: '1px solid #e0e0e0',
-                                borderRadius: '8px',
-                                fontSize: '16px',
-                                fontWeight: '500',
-                                outline: 'none',
-                                transition: 'border-color 0.2s',
-                                backgroundColor: isEditing ? '#fff' : '#f8f9fa',
-                                cursor: isEditing ? 'text' : 'not-allowed'
-                            }}
-                            onFocus={(e) => isEditing && (e.target.style.borderColor = '#2ecc71')}
-                            onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
-                        />
-                    </div>
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+                    gap: '30px'
+                }}>
+                    {/* Profile Card - Colorful Gradient */}
+                    <div style={{
+                        background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                        borderRadius: '24px',
+                        padding: '40px',
+                        boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+                        position: 'relative',
+                        overflow: 'hidden',
+                        animation: 'fadeInLeft 0.6s ease-out'
+                    }}>
+                        {/* Decorative circles */}
+                        <div style={{
+                            position: 'absolute',
+                            top: '-50px',
+                            right: '-50px',
+                            width: '200px',
+                            height: '200px',
+                            background: 'rgba(255,255,255,0.1)',
+                            borderRadius: '50%'
+                        }}></div>
+                        <div style={{
+                            position: 'absolute',
+                            bottom: '-30px',
+                            left: '-30px',
+                            width: '150px',
+                            height: '150px',
+                            background: 'rgba(255,255,255,0.1)',
+                            borderRadius: '50%'
+                        }}></div>
 
-                    {/* Email */}
-                    <div className="form-group" style={{ gridColumn: 'span 1' }}>
-                        <label htmlFor="email" style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            marginBottom: '8px',
-                            fontWeight: '700',
-                            color: '#2c3e50',
-                            fontSize: '16px'
-                        }}>
-                            <Mail size={18} color="#2ecc71" />
-                            Email Address
-                        </label>
-                        <input
-                            type="email"
-                            id="email"
-                            value={formData.email}
-                            disabled={true}
-                            placeholder="name@example.com"
-                            style={{
-                                width: '100%',
-                                padding: '12px',
-                                border: '1px solid #e0e0e0',
-                                borderRadius: '8px',
-                                fontSize: '16px',
-                                fontWeight: '500',
-                                outline: 'none',
-                                backgroundColor: '#f8f9fa',
-                                cursor: 'not-allowed',
-                                color: '#7f8c8d'
-                            }}
-                        />
-                        <small style={{ color: '#95a5a6', fontSize: '11px', marginTop: '4px', display: 'block' }}>
-                            Email cannot be changed
-                        </small>
-                    </div>
-
-                    {/* Phone */}
-                    <div className="form-group" style={{ gridColumn: 'span 1' }}>
-                        <label htmlFor="phone" style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            marginBottom: '8px',
-                            fontWeight: '700',
-                            color: '#2c3e50',
-                            fontSize: '16px'
-                        }}>
-                            <Phone size={18} color="#2ecc71" />
-                            Phone Number
-                        </label>
-                        <input
-                            type="tel"
-                            id="phone"
-                            value={formData.phone}
-                            onChange={handleChange}
-                            disabled={!isEditing}
-                            placeholder="Mobile Number"
-                            style={{
-                                width: '100%',
-                                padding: '12px',
-                                border: '1px solid #e0e0e0',
-                                borderRadius: '8px',
-                                fontSize: '16px',
-                                fontWeight: '500',
-                                outline: 'none',
-                                transition: 'border-color 0.2s',
-                                backgroundColor: isEditing ? '#fff' : '#f8f9fa',
-                                cursor: isEditing ? 'text' : 'not-allowed'
-                            }}
-                            onFocus={(e) => isEditing && (e.target.style.borderColor = '#2ecc71')}
-                            onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
-                        />
-                    </div>
-
-                    {/* Address */}
-                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                        <label htmlFor="address" style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            marginBottom: '8px',
-                            fontWeight: '700',
-                            color: '#2c3e50',
-                            fontSize: '16px'
-                        }}>
-                            <MapPin size={18} color="#2ecc71" />
-                            Residential Address
-                        </label>
-                        <textarea
-                            id="address"
-                            value={formData.address}
-                            onChange={handleChange}
-                            disabled={!isEditing}
-                            placeholder="Full Address"
-                            style={{
-                                width: '100%',
-                                padding: '12px',
-                                border: '1px solid #e0e0e0',
-                                borderRadius: '8px',
-                                fontSize: '16px',
-                                fontWeight: '500',
-                                outline: 'none',
-                                minHeight: '100px',
-                                resize: 'vertical',
-                                transition: 'border-color 0.2s',
-                                backgroundColor: isEditing ? '#fff' : '#f8f9fa',
-                                cursor: isEditing ? 'text' : 'not-allowed'
-                            }}
-                            onFocus={(e) => isEditing && (e.target.style.borderColor = '#2ecc71')}
-                            onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
-                        />
-                    </div>
-
-                    {/* Sponsor ID - Read Only */}
-                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                        <label style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            marginBottom: '8px',
-                            fontWeight: '700',
-                            color: '#2c3e50',
-                            fontSize: '16px'
-                        }}>
-                            <div style={{
-                                width: '18px',
-                                height: '18px',
-                                background: '#2ecc71',
-                                borderRadius: '4px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: 'white',
-                                fontSize: '10px',
-                                fontWeight: 'bold'
-                            }}>ID</div>
-                            Sponsor ID
-                        </label>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
+                            {/* Profile Picture */}
                             <input
-                                type="text"
-                                value={user.id || 'Loading...'}
-                                disabled={true}
-                                style={{
-                                    flex: 1,
-                                    padding: '12px',
-                                    border: '1px solid #e0e0e0',
-                                    borderRadius: '8px',
-                                    fontSize: '14px',
-                                    fontWeight: '600',
-                                    fontFamily: 'monospace',
-                                    outline: 'none',
-                                    backgroundColor: '#f0f7ff',
-                                    cursor: 'not-allowed',
-                                    color: '#0f4c81'
-                                }}
+                                type="file"
+                                id="profilePictureInput"
+                                accept="image/*"
+                                onChange={handleProfilePictureUpload}
+                                style={{ display: 'none' }}
                             />
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    navigator.clipboard.writeText(user.id);
-                                    toast.success('Sponsor ID copied!');
-                                }}
-                                style={{
-                                    padding: '12px 20px',
-                                    background: '#0f4c81',
-                                    color: '#fff',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    cursor: 'pointer',
-                                    fontWeight: '600',
-                                    fontSize: '14px',
-                                    whiteSpace: 'nowrap',
-                                    transition: 'background 0.3s'
-                                }}
-                                onMouseEnter={(e) => e.target.style.background = '#0a3a61'}
-                                onMouseLeave={(e) => e.target.style.background = '#0f4c81'}
-                            >
-                                Copy ID
-                            </button>
-                        </div>
-                        <small style={{ color: '#95a5a6', fontSize: '11px', marginTop: '4px', display: 'block' }}>
-                            Use this ID for support and transactions
-                        </small>
-                    </div>
 
-                    {/* Action Buttons */}
-                    <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '12px', marginTop: '10px' }}>
-                        {isEditing ? (
-                            <>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setIsEditing(false);
-                                        setFormData({
-                                            fullName: user.fullName || user.full_name || '',
-                                            email: user.email || '',
-                                            phone: user.phone || user.phoneNumber || user.phone_number || '',
-                                            address: user.address || ''
-                                        });
-                                    }}
+                            <div style={{ position: 'relative', display: 'inline-block', marginBottom: '20px' }}>
+                                <div
+                                    onClick={() => !uploading && document.getElementById('profilePictureInput').click()}
                                     style={{
-                                        flex: 1,
-                                        padding: '14px',
-                                        background: '#fff',
-                                        color: '#7f8c8d',
-                                        border: '2px solid #e0e0e0',
-                                        borderRadius: '8px',
-                                        fontSize: '16px',
-                                        fontWeight: '600',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.3s'
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.target.style.borderColor = '#bdc3c7';
-                                        e.target.style.background = '#f8f9fa';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.target.style.borderColor = '#e0e0e0';
-                                        e.target.style.background = '#fff';
-                                    }}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    style={{
-                                        flex: 1,
-                                        padding: '14px',
-                                        background: '#2ecc71',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        fontSize: '16px',
-                                        fontWeight: '600',
-                                        cursor: 'pointer',
-                                        boxShadow: '0 4px 12px rgba(46, 204, 113, 0.25)',
-                                        transition: 'all 0.3s',
+                                        width: '150px',
+                                        height: '150px',
+                                        borderRadius: '50%',
+                                        background: user?.profile_picture
+                                            ? `url(${user.profile_picture}) center/cover`
+                                            : 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        gap: '8px'
+                                        fontSize: '60px',
+                                        fontWeight: 'bold',
+                                        color: '#fff',
+                                        cursor: uploading ? 'wait' : 'pointer',
+                                        border: '6px solid white',
+                                        boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
+                                        transition: 'transform 0.3s, box-shadow 0.3s',
+                                        position: 'relative',
+                                        overflow: 'hidden'
                                     }}
-                                    onMouseEnter={(e) => e.target.style.background = '#27ae60'}
-                                    onMouseLeave={(e) => e.target.style.background = '#2ecc71'}
+                                    onMouseEnter={(e) => {
+                                        if (!uploading) {
+                                            e.currentTarget.style.transform = 'scale(1.05)';
+                                            e.currentTarget.style.boxShadow = '0 15px 50px rgba(0,0,0,0.4)';
+                                        }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (!uploading) {
+                                            e.currentTarget.style.transform = 'scale(1)';
+                                            e.currentTarget.style.boxShadow = '0 10px 40px rgba(0,0,0,0.3)';
+                                        }
+                                    }}
                                 >
-                                    <Save size={18} />
-                                    Save Changes
+                                    {uploading ? (
+                                        <div style={{
+                                            position: 'absolute',
+                                            inset: 0,
+                                            background: 'rgba(0,0,0,0.6)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            flexDirection: 'column',
+                                            gap: '10px'
+                                        }}>
+                                            <div style={{
+                                                width: '40px',
+                                                height: '40px',
+                                                border: '4px solid white',
+                                                borderTopColor: 'transparent',
+                                                borderRadius: '50%',
+                                                animation: 'spin 1s linear infinite'
+                                            }}></div>
+                                            <span style={{ fontSize: '14px', fontWeight: '600' }}>Uploading...</span>
+                                        </div>
+                                    ) : !user?.profile_picture && (
+                                        formData.fullName?.charAt(0)?.toUpperCase() || 'S'
+                                    )}
+                                </div>
+
+                                <button
+                                    onClick={() => !uploading && document.getElementById('profilePictureInput').click()}
+                                    disabled={uploading}
+                                    style={{
+                                        position: 'absolute',
+                                        bottom: '5px',
+                                        right: '5px',
+                                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                        color: 'white',
+                                        border: '3px solid white',
+                                        borderRadius: '50%',
+                                        width: '45px',
+                                        height: '45px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        cursor: uploading ? 'wait' : 'pointer',
+                                        boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+                                        transition: 'transform 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => !uploading && (e.currentTarget.style.transform = 'scale(1.1)')}
+                                    onMouseLeave={(e) => !uploading && (e.currentTarget.style.transform = 'scale(1)')}
+                                >
+                                    <Camera size={20} />
                                 </button>
-                            </>
-                        ) : (
-                            <button
-                                type="button"
-                                onClick={() => setIsEditing(true)}
-                                style={{
-                                    width: '100%',
-                                    padding: '14px',
-                                    background: '#0f4c81',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '16px',
+                            </div>
+
+                            <h2 style={{
+                                fontSize: '28px',
+                                fontWeight: '700',
+                                color: 'white',
+                                marginBottom: '8px',
+                                textShadow: '0 2px 10px rgba(0,0,0,0.2)'
+                            }}>
+                                {formData.fullName}
+                            </h2>
+                            <p style={{
+                                fontSize: '16px',
+                                color: 'rgba(255,255,255,0.9)',
+                                marginBottom: '25px'
+                            }}>
+                                {formData.email}
+                            </p>
+
+                            {/* Sponsor ID Card */}
+                            <div style={{
+                                background: 'rgba(255,255,255,0.2)',
+                                backdropFilter: 'blur(10px)',
+                                borderRadius: '16px',
+                                padding: '20px',
+                                border: '2px solid rgba(255,255,255,0.3)'
+                            }}>
+                                <div style={{
+                                    fontSize: '12px',
+                                    color: 'rgba(255,255,255,0.8)',
+                                    marginBottom: '8px',
                                     fontWeight: '600',
-                                    cursor: 'pointer',
-                                    boxShadow: '0 4px 12px rgba(15, 76, 129, 0.25)',
-                                    transition: 'all 0.3s'
-                                }}
-                                onMouseEnter={(e) => e.target.style.background = '#0a3a61'}
-                                onMouseLeave={(e) => e.target.style.background = '#0f4c81'}
-                            >
-                                Edit Profile
-                            </button>
-                        )}
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '1px'
+                                }}>
+                                    Sponsor ID
+                                </div>
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '10px'
+                                }}>
+                                    <code style={{
+                                        fontSize: '13px',
+                                        background: 'rgba(255,255,255,0.3)',
+                                        padding: '8px 12px',
+                                        borderRadius: '8px',
+                                        color: 'white',
+                                        fontWeight: '600',
+                                        fontFamily: 'monospace'
+                                    }}>
+                                        {user.id?.substring(0, 12)}...
+                                    </code>
+                                    <button
+                                        onClick={copyToClipboard}
+                                        style={{
+                                            background: copied ? '#2ecc71' : 'rgba(255,255,255,0.3)',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            padding: '8px 12px',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.3s',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '5px',
+                                            fontWeight: '600',
+                                            fontSize: '13px'
+                                        }}
+                                    >
+                                        {copied ? <Check size={16} /> : <Copy size={16} />}
+                                        {copied ? 'Copied!' : 'Copy'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </form>
+
+                    {/* Information Card - Colorful Gradient */}
+                    <div style={{
+                        background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                        borderRadius: '24px',
+                        padding: '40px',
+                        boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+                        position: 'relative',
+                        overflow: 'hidden',
+                        animation: 'fadeInRight 0.6s ease-out'
+                    }}>
+                        {/* Decorative elements */}
+                        <div style={{
+                            position: 'absolute',
+                            top: '-40px',
+                            left: '-40px',
+                            width: '180px',
+                            height: '180px',
+                            background: 'rgba(255,255,255,0.1)',
+                            borderRadius: '50%'
+                        }}></div>
+
+                        <div style={{ position: 'relative', zIndex: 1 }}>
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                marginBottom: '30px'
+                            }}>
+                                <h3 style={{
+                                    fontSize: '24px',
+                                    fontWeight: '700',
+                                    color: 'white',
+                                    textShadow: '0 2px 10px rgba(0,0,0,0.2)'
+                                }}>
+                                    📋 Profile Information
+                                </h3>
+                                {!isEditing && (
+                                    <button
+                                        onClick={() => setIsEditing(true)}
+                                        style={{
+                                            background: 'rgba(255,255,255,0.3)',
+                                            backdropFilter: 'blur(10px)',
+                                            color: 'white',
+                                            border: '2px solid rgba(255,255,255,0.5)',
+                                            borderRadius: '12px',
+                                            padding: '10px 20px',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            fontWeight: '600',
+                                            fontSize: '14px',
+                                            transition: 'all 0.3s'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.background = 'rgba(255,255,255,0.4)';
+                                            e.currentTarget.style.transform = 'translateY(-2px)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.background = 'rgba(255,255,255,0.3)';
+                                            e.currentTarget.style.transform = 'translateY(0)';
+                                        }}
+                                    >
+                                        <Edit2 size={16} />
+                                        Edit Profile
+                                    </button>
+                                )}
+                            </div>
+
+                            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                {/* Full Name */}
+                                <div>
+                                    <label style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        fontSize: '14px',
+                                        fontWeight: '600',
+                                        color: 'white',
+                                        marginBottom: '10px',
+                                        textShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                                    }}>
+                                        <User size={18} />
+                                        Full Name
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="fullName"
+                                        value={formData.fullName}
+                                        onChange={handleChange}
+                                        disabled={!isEditing}
+                                        style={{
+                                            width: '100%',
+                                            padding: '14px 18px',
+                                            border: isEditing ? '2px solid rgba(255,255,255,0.5)' : '2px solid rgba(255,255,255,0.3)',
+                                            borderRadius: '12px',
+                                            fontSize: '16px',
+                                            background: isEditing ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.6)',
+                                            color: '#2c3e50',
+                                            fontWeight: '500',
+                                            transition: 'all 0.3s',
+                                            cursor: isEditing ? 'text' : 'not-allowed'
+                                        }}
+                                    />
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+                                    {/* Email */}
+                                    <div>
+                                        <label style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            fontSize: '14px',
+                                            fontWeight: '600',
+                                            color: 'white',
+                                            marginBottom: '10px',
+                                            textShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                                        }}>
+                                            <Mail size={18} />
+                                            Email Address
+                                        </label>
+                                        <input
+                                            type="email"
+                                            id="email"
+                                            value={formData.email}
+                                            disabled={true}
+                                            style={{
+                                                width: '100%',
+                                                padding: '14px 18px',
+                                                border: '2px solid rgba(255,255,255,0.3)',
+                                                borderRadius: '12px',
+                                                fontSize: '16px',
+                                                background: 'rgba(255,255,255,0.4)',
+                                                color: '#2c3e50',
+                                                fontWeight: '500',
+                                                cursor: 'not-allowed'
+                                            }}
+                                        />
+                                        <p style={{
+                                            fontSize: '12px',
+                                            color: 'rgba(255,255,255,0.8)',
+                                            marginTop: '6px',
+                                            fontWeight: '500'
+                                        }}>
+                                            🔒 Email cannot be changed
+                                        </p>
+                                    </div>
+
+                                    {/* Phone */}
+                                    <div>
+                                        <label style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            fontSize: '14px',
+                                            fontWeight: '600',
+                                            color: 'white',
+                                            marginBottom: '10px',
+                                            textShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                                        }}>
+                                            <Phone size={18} />
+                                            Phone Number
+                                        </label>
+                                        <input
+                                            type="tel"
+                                            id="phone"
+                                            value={formData.phone}
+                                            onChange={handleChange}
+                                            disabled={!isEditing}
+                                            style={{
+                                                width: '100%',
+                                                padding: '14px 18px',
+                                                border: isEditing ? '2px solid rgba(255,255,255,0.5)' : '2px solid rgba(255,255,255,0.3)',
+                                                borderRadius: '12px',
+                                                fontSize: '16px',
+                                                background: isEditing ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.6)',
+                                                color: '#2c3e50',
+                                                fontWeight: '500',
+                                                transition: 'all 0.3s',
+                                                cursor: isEditing ? 'text' : 'not-allowed'
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Address */}
+                                <div>
+                                    <label style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        fontSize: '14px',
+                                        fontWeight: '600',
+                                        color: 'white',
+                                        marginBottom: '10px',
+                                        textShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                                    }}>
+                                        <MapPin size={18} />
+                                        Residential Address
+                                    </label>
+                                    <textarea
+                                        id="address"
+                                        value={formData.address}
+                                        onChange={handleChange}
+                                        disabled={!isEditing}
+                                        rows="4"
+                                        style={{
+                                            width: '100%',
+                                            padding: '14px 18px',
+                                            border: isEditing ? '2px solid rgba(255,255,255,0.5)' : '2px solid rgba(255,255,255,0.3)',
+                                            borderRadius: '12px',
+                                            fontSize: '16px',
+                                            background: isEditing ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.6)',
+                                            color: '#2c3e50',
+                                            fontWeight: '500',
+                                            resize: 'none',
+                                            transition: 'all 0.3s',
+                                            cursor: isEditing ? 'text' : 'not-allowed',
+                                            fontFamily: 'inherit'
+                                        }}
+                                    />
+                                </div>
+
+                                {/* Action Buttons */}
+                                {isEditing && (
+                                    <div style={{ display: 'flex', gap: '15px', marginTop: '10px' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsEditing(false);
+                                                setFormData({
+                                                    fullName: user.fullName || user.full_name || '',
+                                                    email: user.email || '',
+                                                    phone: user.phone || user.phoneNumber || user.phone_number || '',
+                                                    address: user.address || ''
+                                                });
+                                            }}
+                                            style={{
+                                                flex: 1,
+                                                padding: '16px',
+                                                border: '3px solid white',
+                                                background: 'rgba(255,255,255,0.2)',
+                                                backdropFilter: 'blur(10px)',
+                                                color: 'white',
+                                                borderRadius: '14px',
+                                                fontSize: '16px',
+                                                fontWeight: '700',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.3s',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: '1px'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.background = 'rgba(255,255,255,0.3)';
+                                                e.currentTarget.style.transform = 'translateY(-2px)';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.background = 'rgba(255,255,255,0.2)';
+                                                e.currentTarget.style.transform = 'translateY(0)';
+                                            }}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            style={{
+                                                flex: 1,
+                                                padding: '16px',
+                                                border: 'none',
+                                                background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                                                color: 'white',
+                                                borderRadius: '14px',
+                                                fontSize: '16px',
+                                                fontWeight: '700',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '10px',
+                                                boxShadow: '0 8px 25px rgba(245, 87, 108, 0.4)',
+                                                transition: 'all 0.3s',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: '1px'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.currentTarget.style.transform = 'translateY(-3px)';
+                                                e.currentTarget.style.boxShadow = '0 12px 35px rgba(245, 87, 108, 0.5)';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.transform = 'translateY(0)';
+                                                e.currentTarget.style.boxShadow = '0 8px 25px rgba(245, 87, 108, 0.4)';
+                                            }}
+                                        >
+                                            <Save size={20} />
+                                            Save Changes
+                                        </button>
+                                    </div>
+                                )}
+                            </form>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <style>{`
@@ -563,13 +715,42 @@ const Profile = () => {
                     100% { transform: rotate(360deg); }
                 }
                 
-                @media (max-width: 768px) {
-                    form {
-                        grid-template-columns: 1fr !important;
-                        gap: 16px !important;
+                @keyframes fadeInDown {
+                    from {
+                        opacity: 0;
+                        transform: translateY(-30px);
                     }
-                    .form-group {
-                        grid-column: span 1 !important;
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+                
+                @keyframes fadeInLeft {
+                    from {
+                        opacity: 0;
+                        transform: translateX(-30px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateX(0);
+                    }
+                }
+                
+                @keyframes fadeInRight {
+                    from {
+                        opacity: 0;
+                        transform: translateX(30px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateX(0);
+                    }
+                }
+                
+                @media (max-width: 768px) {
+                    div[style*="gridTemplateColumns"] {
+                        grid-template-columns: 1fr !important;
                     }
                 }
             `}</style>
