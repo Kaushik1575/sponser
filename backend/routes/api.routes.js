@@ -22,7 +22,9 @@ router.post('/register', authController.registerSponsor);
 router.post('/login', authController.loginSponsor);
 
 // Sponsor Routes (with /sponsor prefix)
-router.get('/sponsor/profile', verifyToken, authController.getSponsorProfile);
+router.get('/sponsor/profile', verifyToken, sponsorController.getProfile);
+router.put('/sponsor/profile', verifyToken, sponsorController.updateProfile);
+router.post('/sponsor/profile-picture', verifyToken, upload.single('profilePicture'), sponsorController.uploadProfilePicture);
 router.put('/sponsor/update-bank-details', verifyToken, authController.updateBankDetails);
 router.get('/sponsor/dashboard', verifyToken, sponsorController.getDashboard);
 router.post('/sponsor/add-bike', verifyToken, uploadFiles, sponsorController.addBike);

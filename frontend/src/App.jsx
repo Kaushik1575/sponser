@@ -21,7 +21,45 @@ function App() {
   return (
     <Router>
       <ErrorBoundary>
-        <Toaster position="top-right" />
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 3000,
+            style: {
+              background: '#fff',
+              color: '#363636',
+              padding: '16px',
+              borderRadius: '12px',
+              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+              fontSize: '14px',
+              fontWeight: '500',
+            },
+            success: {
+              iconTheme: {
+                primary: '#10b981',
+                secondary: '#fff',
+              },
+              style: {
+                border: '1px solid #d1fae5',
+              },
+            },
+            error: {
+              iconTheme: {
+                primary: '#ef4444',
+                secondary: '#fff',
+              },
+              style: {
+                border: '1px solid #fee2e2',
+              },
+            },
+            loading: {
+              iconTheme: {
+                primary: '#3b82f6',
+                secondary: '#fff',
+              },
+            },
+          }}
+        />
         <Routes>
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />

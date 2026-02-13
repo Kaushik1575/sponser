@@ -473,3 +473,97 @@ exports.getSponsorEarningsReport = async (req, res) => {
         res.status(500).json({ error: 'Failed to generate report' });
     }
 };
+
+// Get Sponsor Profile
+exports.getProfile = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const { data: sponsor, error } = await supabase
+            .from('sponsors')
+            .select('*')
+            .eq('id', userId)
+            .single();
+
+        if (error || !sponsor) {
+            return res.status(404).json({ error: 'Sponsor not found' });
+        }
+
+        res.json({ sponsor });
+    } catch (error) {
+        console.error('Error fetching profile:', error);
+        res.status(500).json({ error: 'Failed to fetch profile' });
+    }
+};
+
+// Update Sponsor Profile
+exports.updateProfile = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { fullName, phone, address } = req.body;
+
+        const updateData = {};
+        if (fullName) updateData.full_name = fullName;
+        if (phone) updateData.phone = phone;
+        if (address) updateData.address = address;
+
+        const { data: sponsor, error } = await supabase
+            .from('sponsors')
+            .update(updateData)
+            .eq('id', userId)
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Error updating profile:', error);
+            return res.status(500).json({ error: 'Failed to update profile' });
+        }
+
+        res.json({ sponsor, message: 'Profile updated successfully' });
+    } catch (error) {
+        console.error('Error updating profile:', error);
+        res.status(500).json({ error: 'Failed to update profile' });
+    }
+};
+
+// Upload Profile Picture
+exports.uploadProfilePicture = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const imageFile = req.file;
+
+        if (!imageFile) {
+            return res.status(400).json({ error: 'No image file provided' });
+        }
+
+        // Upload to Supabase Storage
+        const imageUrl = await uploadToSupabase(imageFile, SUPABASE_BUCKET, 'profile-pictures');
+
+        if (!imageUrl) {
+            return res.status(500).json({ error: 'Failed to upload image' });
+        }
+
+        // Update sponsor profile with new image URL
+        const { data: sponsor, error } = await supabase
+            .from('sponsors')
+            .update({ profile_picture: imageUrl })
+            .eq('id', userId)
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Error updating profile picture:', error);
+            return res.status(500).json({ error: 'Failed to update profile picture' });
+        }
+
+        res.json({
+            sponsor,
+            profilePicture: imageUrl,
+            message: 'Profile picture updated successfully'
+        });
+    } catch (error) {
+        console.error('Error uploading profile picture:', error);
+        res.status(500).json({ error: 'Failed to upload profile picture' });
+    }
+};
+

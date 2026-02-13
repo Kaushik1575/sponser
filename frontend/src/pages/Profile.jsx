@@ -1,259 +1,578 @@
 import { useState, useEffect } from 'react';
-import { Camera, Mail, Phone, MapPin, CreditCard, Building, Edit } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Camera, Save } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
 const Profile = () => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [showBankModal, setShowBankModal] = useState(false);
-    const [bankForm, setBankForm] = useState({
-        bankAccountNumber: '',
-        ifscCode: '',
-        accountHolderName: '',
-        upiId: ''
+    const [isEditing, setIsEditing] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const [formData, setFormData] = useState({
+        fullName: '',
+        email: '',
+        phone: '',
+        address: ''
     });
 
     useEffect(() => {
-        const fetchProfile = async () => {
-            try {
-                // Try fetching fresh profile from API
-                const response = await api.get('/sponsor/profile'); // Assuming a profile endpoint exists
-                if (response.data && response.data.sponsor) {
-                    setUser(response.data.sponsor);
-                } else {
-                    setUser(response.data);
-                }
-            } catch (error) {
-                console.error("Failed to fetch fresh profile", error);
-                // Fallback to localStorage
-                const storedUser = localStorage.getItem('user');
-                if (storedUser) {
-                    setUser(JSON.parse(storedUser));
-                }
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchProfile();
     }, []);
 
-    const handleOpenBankModal = () => {
-        setBankForm({
-            bankAccountNumber: user?.bank_account_number || '',
-            ifscCode: user?.ifsc_code || '',
-            accountHolderName: user?.account_holder_name || '',
-            upiId: user?.upi_id || ''
-        });
-        setShowBankModal(true);
-    };
-
-    const handleUpdateBankDetails = async (e) => {
-        e.preventDefault();
+    const fetchProfile = async () => {
         try {
-            const response = await api.put('/sponsor/bank-details', bankForm);
-            toast.success('Bank details updated successfully!');
-            setUser({ ...user, ...response.data.sponsor });
-            setShowBankModal(false);
+            const response = await api.get('/sponsor/profile');
+            const userData = response.data?.sponsor || response.data;
+            setUser(userData);
+            setFormData({
+                fullName: userData.fullName || userData.full_name || '',
+                email: userData.email || '',
+                phone: userData.phone || userData.phoneNumber || userData.phone_number || '',
+                address: userData.address || ''
+            });
         } catch (error) {
-            console.error('Error updating bank details:', error);
-            toast.error(error.response?.data?.error || 'Failed to update bank details');
+            console.error("Failed to fetch profile", error);
+            const storedUser = localStorage.getItem('user');
+            if (storedUser) {
+                const userData = JSON.parse(storedUser);
+                setUser(userData);
+                setFormData({
+                    fullName: userData.fullName || userData.full_name || '',
+                    email: userData.email || '',
+                    phone: userData.phone || userData.phoneNumber || userData.phone_number || '',
+                    address: userData.address || ''
+                });
+            }
+        } finally {
+            setLoading(false);
         }
     };
 
-    if (loading) return <div className="p-10 text-center">Loading profile...</div>;
-    if (!user) return <div className="p-10 text-center text-red-500">User not found. Please login again.</div>;
+    const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.id]: e.target.value });
+    };
 
-    return (
-        <div className="p-6 bg-gray-50 min-h-screen pb-20">
-            <div className="max-w-4xl mx-auto space-y-6">
+    const handleProfilePictureUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
 
-                {/* Header / Cover */}
-                <div className="relative h-48 bg-gradient-to-r from-brand-600 to-cyan-500 rounded-2xl overflow-hidden shadow-lg">
-                    <div className="absolute inset-0 bg-black/20"></div>
-                    <div className="absolute -bottom-12 left-8">
-                        <div className="relative w-32 h-32 rounded-full border-4 border-white bg-white shadow-md overflow-hidden group cursor-pointer">
-                            <img src={user.profilePicture || "https://ui-avatars.com/api/?name=" + user.fullName} alt="Profile" className="w-full h-full object-cover" />
-                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                <Camera className="w-8 h-8 text-white" />
-                            </div>
-                        </div>
-                    </div>
-                </div>
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            toast.error('Please select an image file');
+            return;
+        }
 
-                <div className="pt-14 px-8 flex justify-between items-start">
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-800">{user.fullName || "Sponsor Name"}</h1>
-                        <p className="text-gray-500">{user.email}</p>
-                        <span className="inline-block mt-2 px-3 py-1 rounded-full text-xs font-semibold bg-brand-100 text-brand-700 uppercase tracking-wide">
-                            {user.role} Account
-                        </span>
-                    </div>
-                    <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors">
-                        <Edit className="w-4 h-4" />
-                        Edit Profile
-                    </button>
-                </div>
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error('Image size should be less than 5MB');
+            return;
+        }
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Personal Info */}
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                        <h2 className="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-100">Personal Information</h2>
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-3 text-gray-600">
-                                <div className="w-5 h-5 flex items-center justify-center bg-indigo-100 rounded-full text-indigo-600 font-bold text-xs">ID</div>
-                                <div className="flex-1">
-                                    <p className="text-xs text-gray-400">Sponsor ID</p>
-                                    <div className="flex items-center gap-2">
-                                        <p className="text-sm font-medium font-mono bg-gray-50 px-2 py-1 rounded select-all">{user.id || "Loading..."}</p>
-                                        <button
-                                            onClick={() => {
-                                                navigator.clipboard.writeText(user.id);
-                                                toast.success('ID Copied!');
-                                            }}
-                                            className="text-gray-400 hover:text-indigo-600 transition-colors"
-                                            title="Copy ID"
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-3 text-gray-600">
-                                <Mail className="w-5 h-5 text-gray-400" />
-                                <div>
-                                    <p className="text-xs text-gray-400">Email Address</p>
-                                    <p className="text-sm font-medium">{user.email}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-3 text-gray-600">
-                                <Phone className="w-5 h-5 text-gray-400" />
-                                <div>
-                                    <p className="text-xs text-gray-400">Phone Number</p>
-                                    <p className="text-sm font-medium">{user.phone || "Not provided"}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-3 text-gray-600">
-                                <MapPin className="w-5 h-5 text-gray-400" />
-                                <div>
-                                    <p className="text-xs text-gray-400">Address</p>
-                                    <p className="text-sm font-medium">{user.address || "No address details"}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+        setUploading(true);
+        const formDataUpload = new FormData();
+        formDataUpload.append('profilePicture', file);
 
-                    {/* Bank Details */}
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                        <h2 className="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-100">Bank Details</h2>
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-3 text-gray-600">
-                                <Building className="w-5 h-5 text-gray-400" />
-                                <div>
-                                    <p className="text-xs text-gray-400">Bank Account</p>
-                                    <p className="text-sm font-medium font-mono">{user.bank_account_number ? `•••• •••• ${user.bank_account_number.slice(-4)}` : "Not Linked"}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-3 text-gray-600">
-                                <CreditCard className="w-5 h-5 text-gray-400" />
-                                <div>
-                                    <p className="text-xs text-gray-400">IFSC Code</p>
-                                    <p className="text-sm font-medium font-mono">{user.ifsc_code || "N/A"}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-3 text-gray-600">
-                                <div className="w-5 h-5 text-gray-400 font-bold flex items-center justify-center text-[10px] border border-gray-400 rounded">UPI</div>
-                                <div>
-                                    <p className="text-xs text-gray-400">UPI ID</p>
-                                    <p className="text-sm font-medium">{user.upi_id || "Not Linked"}</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="mt-6 pt-4 border-t border-gray-100">
-                            <button onClick={handleOpenBankModal} className="text-sm text-brand-600 font-medium hover:text-brand-700 transition-colors">Update Bank Details</button>
-                        </div>
-                    </div>
+        try {
+            const response = await api.post('/sponsor/profile-picture', formDataUpload, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+
+            toast.success('Profile picture updated successfully!');
+            const updatedUser = response.data.sponsor;
+            setUser(updatedUser);
+
+            // Update localStorage
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+        } catch (error) {
+            console.error('Error uploading profile picture:', error);
+            toast.error(error.response?.data?.error || 'Failed to upload profile picture');
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            const response = await api.put('/sponsor/profile', formData);
+            toast.success('Profile updated successfully!');
+            setUser(response.data.sponsor || response.data);
+            setIsEditing(false);
+
+            // Update localStorage
+            const updatedUser = response.data.sponsor || response.data;
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+        } catch (error) {
+            console.error('Error updating profile:', error);
+            toast.error(error.response?.data?.error || 'Failed to update profile');
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="text-center">
+                    <div className="w-12 h-12 border-4 border-brand-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading profile...</p>
                 </div>
             </div>
+        );
+    }
 
-            {/* Bank Details Update Modal */}
-            {showBankModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
-                        <h2 className="text-2xl font-bold text-gray-800 mb-6">Update Bank Details</h2>
+    if (!user) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="text-center">
+                    <p className="text-red-500 text-lg">User not found. Please login again.</p>
+                </div>
+            </div>
+        );
+    }
 
-                        <form onSubmit={handleUpdateBankDetails} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    Account Holder Name
-                                </label>
-                                <input
-                                    type="text"
-                                    value={bankForm.accountHolderName}
-                                    onChange={(e) => setBankForm({ ...bankForm, accountHolderName: e.target.value })}
-                                    placeholder="Enter account holder name"
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-200 transition-all"
-                                />
+    return (
+        <div style={{
+            background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)',
+            minHeight: '100vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            fontFamily: "'Inter', sans-serif"
+        }}>
+            <div style={{
+                maxWidth: '850px',
+                width: '100%',
+                backgroundColor: '#ffffff',
+                borderRadius: '16px',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                padding: '40px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '20px'
+            }}>
+                {/* Header */}
+                <div style={{ textAlign: 'center', marginBottom: '10px' }}>
+                    {/* Hidden file input */}
+                    <input
+                        type="file"
+                        id="profilePictureInput"
+                        accept="image/*"
+                        onChange={handleProfilePictureUpload}
+                        style={{ display: 'none' }}
+                    />
+
+                    <div
+                        style={{
+                            width: '120px',
+                            height: '120px',
+                            margin: '0 auto 20px',
+                            borderRadius: '50%',
+                            background: user?.profile_picture
+                                ? `url(${user.profile_picture}) center/cover`
+                                : 'linear-gradient(135deg, #0f4c81 0%, #2ecc71 100%)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'white',
+                            fontSize: '48px',
+                            fontWeight: 'bold',
+                            boxShadow: '0 4px 12px rgba(15, 76, 129, 0.3)',
+                            position: 'relative',
+                            overflow: 'hidden',
+                            cursor: uploading ? 'wait' : 'pointer',
+                            transition: 'transform 0.3s',
+                            border: uploading ? '3px solid #2ecc71' : 'none'
+                        }}
+                        onClick={() => !uploading && document.getElementById('profilePictureInput').click()}
+                        onMouseEnter={(e) => !uploading && (e.currentTarget.style.transform = 'scale(1.05)')}
+                        onMouseLeave={(e) => !uploading && (e.currentTarget.style.transform = 'scale(1)')}
+                    >
+                        {uploading ? (
+                            <div style={{
+                                position: 'absolute',
+                                inset: 0,
+                                background: 'rgba(0,0,0,0.5)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexDirection: 'column',
+                                gap: '8px'
+                            }}>
+                                <div style={{
+                                    width: '30px',
+                                    height: '30px',
+                                    border: '3px solid white',
+                                    borderTopColor: 'transparent',
+                                    borderRadius: '50%',
+                                    animation: 'spin 1s linear infinite'
+                                }}></div>
+                                <span style={{ fontSize: '12px', fontWeight: '500' }}>Uploading...</span>
                             </div>
+                        ) : !user?.profile_picture && (
+                            formData.fullName?.charAt(0)?.toUpperCase() || 'S'
+                        )}
 
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    Bank Account Number
-                                </label>
-                                <input
-                                    type="text"
-                                    value={bankForm.bankAccountNumber}
-                                    onChange={(e) => setBankForm({ ...bankForm, bankAccountNumber: e.target.value })}
-                                    placeholder="Enter account number"
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-200 transition-all font-mono"
-                                />
-                            </div>
+                        <div style={{
+                            position: 'absolute',
+                            bottom: '0',
+                            right: '0',
+                            background: uploading ? '#95a5a6' : '#2ecc71',
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            border: '3px solid white',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+                        }}>
+                            <Camera size={16} color="white" />
+                        </div>
+                    </div>
+                    <h2 style={{ fontSize: '28px', color: '#2c3e50', fontWeight: 'bold', margin: '0 0 8px 0' }}>
+                        {isEditing ? 'Edit Profile' : 'My Profile'}
+                    </h2>
+                    <p style={{ color: '#7f8c8d', margin: 0 }}>
+                        {isEditing ? 'Update your personal information' : 'Sponsor Account Details'}
+                    </p>
+                </div>
 
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    IFSC Code
-                                </label>
-                                <input
-                                    type="text"
-                                    value={bankForm.ifscCode}
-                                    onChange={(e) => setBankForm({ ...bankForm, ifscCode: e.target.value.toUpperCase() })}
-                                    placeholder="Enter IFSC code"
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-200 transition-all font-mono uppercase"
-                                />
-                            </div>
+                <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                    {/* Full Name */}
+                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                        <label htmlFor="fullName" style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            marginBottom: '8px',
+                            fontWeight: '700',
+                            color: '#2c3e50',
+                            fontSize: '16px'
+                        }}>
+                            <User size={18} color="#2ecc71" />
+                            Full Name
+                        </label>
+                        <input
+                            type="text"
+                            id="fullName"
+                            value={formData.fullName}
+                            onChange={handleChange}
+                            disabled={!isEditing}
+                            placeholder="Enter your full name"
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                border: '1px solid #e0e0e0',
+                                borderRadius: '8px',
+                                fontSize: '16px',
+                                fontWeight: '500',
+                                outline: 'none',
+                                transition: 'border-color 0.2s',
+                                backgroundColor: isEditing ? '#fff' : '#f8f9fa',
+                                cursor: isEditing ? 'text' : 'not-allowed'
+                            }}
+                            onFocus={(e) => isEditing && (e.target.style.borderColor = '#2ecc71')}
+                            onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
+                        />
+                    </div>
 
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    UPI ID
-                                </label>
-                                <input
-                                    type="text"
-                                    value={bankForm.upiId}
-                                    onChange={(e) => setBankForm({ ...bankForm, upiId: e.target.value })}
-                                    placeholder="yourname@upi"
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-brand-500 focus:ring-2 focus:ring-brand-200 transition-all"
-                                />
-                            </div>
+                    {/* Email */}
+                    <div className="form-group" style={{ gridColumn: 'span 1' }}>
+                        <label htmlFor="email" style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            marginBottom: '8px',
+                            fontWeight: '700',
+                            color: '#2c3e50',
+                            fontSize: '16px'
+                        }}>
+                            <Mail size={18} color="#2ecc71" />
+                            Email Address
+                        </label>
+                        <input
+                            type="email"
+                            id="email"
+                            value={formData.email}
+                            disabled={true}
+                            placeholder="name@example.com"
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                border: '1px solid #e0e0e0',
+                                borderRadius: '8px',
+                                fontSize: '16px',
+                                fontWeight: '500',
+                                outline: 'none',
+                                backgroundColor: '#f8f9fa',
+                                cursor: 'not-allowed',
+                                color: '#7f8c8d'
+                            }}
+                        />
+                        <small style={{ color: '#95a5a6', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                            Email cannot be changed
+                        </small>
+                    </div>
 
-                            <div className="flex gap-3 mt-6">
+                    {/* Phone */}
+                    <div className="form-group" style={{ gridColumn: 'span 1' }}>
+                        <label htmlFor="phone" style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            marginBottom: '8px',
+                            fontWeight: '700',
+                            color: '#2c3e50',
+                            fontSize: '16px'
+                        }}>
+                            <Phone size={18} color="#2ecc71" />
+                            Phone Number
+                        </label>
+                        <input
+                            type="tel"
+                            id="phone"
+                            value={formData.phone}
+                            onChange={handleChange}
+                            disabled={!isEditing}
+                            placeholder="Mobile Number"
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                border: '1px solid #e0e0e0',
+                                borderRadius: '8px',
+                                fontSize: '16px',
+                                fontWeight: '500',
+                                outline: 'none',
+                                transition: 'border-color 0.2s',
+                                backgroundColor: isEditing ? '#fff' : '#f8f9fa',
+                                cursor: isEditing ? 'text' : 'not-allowed'
+                            }}
+                            onFocus={(e) => isEditing && (e.target.style.borderColor = '#2ecc71')}
+                            onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
+                        />
+                    </div>
+
+                    {/* Address */}
+                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                        <label htmlFor="address" style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            marginBottom: '8px',
+                            fontWeight: '700',
+                            color: '#2c3e50',
+                            fontSize: '16px'
+                        }}>
+                            <MapPin size={18} color="#2ecc71" />
+                            Residential Address
+                        </label>
+                        <textarea
+                            id="address"
+                            value={formData.address}
+                            onChange={handleChange}
+                            disabled={!isEditing}
+                            placeholder="Full Address"
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                border: '1px solid #e0e0e0',
+                                borderRadius: '8px',
+                                fontSize: '16px',
+                                fontWeight: '500',
+                                outline: 'none',
+                                minHeight: '100px',
+                                resize: 'vertical',
+                                transition: 'border-color 0.2s',
+                                backgroundColor: isEditing ? '#fff' : '#f8f9fa',
+                                cursor: isEditing ? 'text' : 'not-allowed'
+                            }}
+                            onFocus={(e) => isEditing && (e.target.style.borderColor = '#2ecc71')}
+                            onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
+                        />
+                    </div>
+
+                    {/* Sponsor ID - Read Only */}
+                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                        <label style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            marginBottom: '8px',
+                            fontWeight: '700',
+                            color: '#2c3e50',
+                            fontSize: '16px'
+                        }}>
+                            <div style={{
+                                width: '18px',
+                                height: '18px',
+                                background: '#2ecc71',
+                                borderRadius: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'white',
+                                fontSize: '10px',
+                                fontWeight: 'bold'
+                            }}>ID</div>
+                            Sponsor ID
+                        </label>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <input
+                                type="text"
+                                value={user.id || 'Loading...'}
+                                disabled={true}
+                                style={{
+                                    flex: 1,
+                                    padding: '12px',
+                                    border: '1px solid #e0e0e0',
+                                    borderRadius: '8px',
+                                    fontSize: '14px',
+                                    fontWeight: '600',
+                                    fontFamily: 'monospace',
+                                    outline: 'none',
+                                    backgroundColor: '#f0f7ff',
+                                    cursor: 'not-allowed',
+                                    color: '#0f4c81'
+                                }}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    navigator.clipboard.writeText(user.id);
+                                    toast.success('Sponsor ID copied!');
+                                }}
+                                style={{
+                                    padding: '12px 20px',
+                                    background: '#0f4c81',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontWeight: '600',
+                                    fontSize: '14px',
+                                    whiteSpace: 'nowrap',
+                                    transition: 'background 0.3s'
+                                }}
+                                onMouseEnter={(e) => e.target.style.background = '#0a3a61'}
+                                onMouseLeave={(e) => e.target.style.background = '#0f4c81'}
+                            >
+                                Copy ID
+                            </button>
+                        </div>
+                        <small style={{ color: '#95a5a6', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                            Use this ID for support and transactions
+                        </small>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '12px', marginTop: '10px' }}>
+                        {isEditing ? (
+                            <>
                                 <button
                                     type="button"
-                                    onClick={() => setShowBankModal(false)}
-                                    className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all"
+                                    onClick={() => {
+                                        setIsEditing(false);
+                                        setFormData({
+                                            fullName: user.fullName || user.full_name || '',
+                                            email: user.email || '',
+                                            phone: user.phone || user.phoneNumber || user.phone_number || '',
+                                            address: user.address || ''
+                                        });
+                                    }}
+                                    style={{
+                                        flex: 1,
+                                        padding: '14px',
+                                        background: '#fff',
+                                        color: '#7f8c8d',
+                                        border: '2px solid #e0e0e0',
+                                        borderRadius: '8px',
+                                        fontSize: '16px',
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.3s'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.target.style.borderColor = '#bdc3c7';
+                                        e.target.style.background = '#f8f9fa';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.target.style.borderColor = '#e0e0e0';
+                                        e.target.style.background = '#fff';
+                                    }}
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
-                                    className="flex-1 px-4 py-3 bg-gradient-to-r from-brand-600 to-cyan-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all"
+                                    style={{
+                                        flex: 1,
+                                        padding: '14px',
+                                        background: '#2ecc71',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        fontSize: '16px',
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        boxShadow: '0 4px 12px rgba(46, 204, 113, 0.25)',
+                                        transition: 'all 0.3s',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '8px'
+                                    }}
+                                    onMouseEnter={(e) => e.target.style.background = '#27ae60'}
+                                    onMouseLeave={(e) => e.target.style.background = '#2ecc71'}
                                 >
-                                    Update
+                                    <Save size={18} />
+                                    Save Changes
                                 </button>
-                            </div>
-                        </form>
+                            </>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => setIsEditing(true)}
+                                style={{
+                                    width: '100%',
+                                    padding: '14px',
+                                    background: '#0f4c81',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '16px',
+                                    fontWeight: '600',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 4px 12px rgba(15, 76, 129, 0.25)',
+                                    transition: 'all 0.3s'
+                                }}
+                                onMouseEnter={(e) => e.target.style.background = '#0a3a61'}
+                                onMouseLeave={(e) => e.target.style.background = '#0f4c81'}
+                            >
+                                Edit Profile
+                            </button>
+                        )}
                     </div>
-                </div>
-            )}
+                </form>
+            </div>
+
+            <style>{`
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+                
+                @media (max-width: 768px) {
+                    form {
+                        grid-template-columns: 1fr !important;
+                        gap: 16px !important;
+                    }
+                    .form-group {
+                        grid-column: span 1 !important;
+                    }
+                }
+            `}</style>
         </div>
     );
 };

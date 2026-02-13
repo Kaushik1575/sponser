@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import StatusPopup from '../components/StatusPopup';
+import toast from 'react-hot-toast';
 import OTPInput from '../components/OTPInput';
 import api from '../services/api';
 
@@ -20,12 +20,6 @@ const Register = () => {
     });
     const [emailVerified, setEmailVerified] = useState(false);
     const [mobileVerified, setMobileVerified] = useState(false);
-    const [popup, setPopup] = useState({
-        isOpen: false,
-        type: 'error',
-        title: '',
-        message: ''
-    });
     const [showOtpInput, setShowOtpInput] = useState(false);
     const [showMobileOtpInput, setShowMobileOtpInput] = useState(false);
     const [isSendingOtp, setIsSendingOtp] = useState(false);
@@ -40,15 +34,17 @@ const Register = () => {
     const handleSendOtp = async () => {
         setFormData(prev => ({ ...prev, otp: '' }));
         setEmailVerified(false);
-        if (!formData.email) return setPopup({ isOpen: true, type: 'error', title: 'Email Required', message: 'Please enter your email first' });
+        if (!formData.email) {
+            toast.error('Please enter your email first');
+            return;
+        }
         setIsSendingOtp(true);
         try {
-            // Updated Endpoint
             await api.post('/send-email-otp', { email: formData.email });
             setShowOtpInput(true);
-            setPopup({ isOpen: true, type: 'success', title: 'Email OTP Sent', message: 'OTP sent to your email' });
+            toast.success('OTP sent to your email');
         } catch (err) {
-            setPopup({ isOpen: true, type: 'error', title: 'Error', message: err.response?.data?.error || 'Failed to send OTP' });
+            toast.error(err.response?.data?.error || 'Failed to send OTP');
         } finally {
             setIsSendingOtp(false);
         }
@@ -57,15 +53,17 @@ const Register = () => {
     const handleSendMobileOtp = async () => {
         setFormData(prev => ({ ...prev, mobileOtp: '' }));
         setMobileVerified(false);
-        if (!formData.phoneNumber) return setPopup({ isOpen: true, type: 'error', title: 'Phone Number Required', message: 'Please enter your phone number first' });
+        if (!formData.phoneNumber) {
+            toast.error('Please enter your phone number first');
+            return;
+        }
         setIsSendingMobileOtp(true);
         try {
-            // Updated Endpoint
             await api.post('/send-mobile-otp', { phoneNumber: formData.phoneNumber });
             setShowMobileOtpInput(true);
-            setPopup({ isOpen: true, type: 'success', title: 'Mobile OTP Sent', message: 'OTP sent to your mobile' });
+            toast.success('OTP sent to your mobile');
         } catch (err) {
-            setPopup({ isOpen: true, type: 'error', title: 'Error', message: err.response?.data?.error || 'Failed to send OTP' });
+            toast.error(err.response?.data?.error || 'Failed to send OTP');
         } finally {
             setIsSendingMobileOtp(false);
         }
@@ -74,7 +72,6 @@ const Register = () => {
     const verifyOtp = async (type, otpValue) => {
         const identifier = type === 'email' ? formData.email : formData.phoneNumber;
         try {
-            // Updated Endpoint
             await api.post('/verify-otp', { type, identifier, otp: otpValue });
 
             if (type === 'email') {
@@ -90,7 +87,7 @@ const Register = () => {
                 setFormData(prev => ({ ...prev, mobileOtp: otpValue }));
             }
         } catch (err) {
-            setPopup({ isOpen: true, type: 'error', title: 'Invalid OTP', message: err.response?.data?.error || 'Invalid OTP' });
+            toast.error(err.response?.data?.error || 'Invalid OTP');
         }
     };
 
@@ -111,29 +108,27 @@ const Register = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (formData.password !== formData.confirmPassword) {
-            setPopup({ isOpen: true, type: 'error', title: 'Password Mismatch', message: 'Passwords do not match' });
+            toast.error('Passwords do not match');
             return;
         }
 
         const failed = Object.entries(passwordChecks).filter(([k, v]) => !v).map(x => x[0]);
         if (failed.length > 0) {
-            setPopup({ isOpen: true, type: 'error', title: 'Weak Password', message: 'Password does not meet complexity requirements.' });
+            toast.error('Password does not meet complexity requirements');
             return;
         }
 
         if (!emailVerified) {
-            setPopup({ isOpen: true, type: 'error', title: 'Email Verification Required', message: 'Please verify your email.' });
+            toast.error('Please verify your email');
             return;
         }
 
         if (!mobileVerified) {
-            setPopup({ isOpen: true, type: 'error', title: 'Mobile Verification Required', message: 'Please verify your mobile number.' });
+            toast.error('Please verify your mobile number');
             return;
         }
 
         try {
-            // Updated Endpoint: /register (Sponsor)
-            // Send emailOtp (formData.otp) and mobileOtp to backend for final check
             await api.post('/register', {
                 fullName: formData.fullName,
                 email: formData.email,
@@ -145,14 +140,10 @@ const Register = () => {
                 mobileOtp: formData.mobileOtp
             });
 
-            setPopup({
-                isOpen: true,
-                type: 'success',
-                title: 'Registration Successful',
-                message: 'Sponsor registration successful! Redirecting to login...'
-            });
+            toast.success('Registration successful! Redirecting to login...');
+            setTimeout(() => navigate('/login'), 1500);
         } catch (error) {
-            setPopup({ isOpen: true, type: 'error', title: 'Registration Failed', message: error.response?.data?.error || 'Registration failed' });
+            toast.error(error.response?.data?.error || 'Registration failed');
         }
     };
 
@@ -331,18 +322,6 @@ const Register = () => {
                 </div>
             </div>
 
-            <StatusPopup
-                isOpen={popup.isOpen}
-                onClose={() => {
-                    setPopup({ ...popup, isOpen: false });
-                    if (popup.type === 'success' && popup.title === 'Registration Successful') {
-                        navigate('/login');
-                    }
-                }}
-                type={popup.type}
-                title={popup.title}
-                message={popup.message}
-            />
             <style>{`
                 @media (max-width: 768px) {
                     .auth-container { padding: 24px !important; }
