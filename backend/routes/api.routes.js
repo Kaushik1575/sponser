@@ -15,6 +15,9 @@ const uploadFiles = upload.fields([
 ]);
 
 // Auth Routes (no /sponsor prefix for these)
+router.post('/send-email-otp', authController.sendEmailOtp);
+router.post('/send-mobile-otp', authController.sendMobileOtp);
+router.post('/verify-otp', authController.verifyOtp);
 router.post('/register', authController.registerSponsor);
 router.post('/login', authController.loginSponsor);
 

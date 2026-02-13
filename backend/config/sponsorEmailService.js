@@ -8,7 +8,7 @@ const SENDER_EMAIL = 'onboarding@jitus.app';
 const SENDER_NAME = 'RentHub';
 
 // Generic function to send email via Resend
-async function sendEmail({ to, subject, html, attachments }) {
+const sendEmail = async ({ to, subject, html, attachments }) => {
     try {
         if (!process.env.RESEND_API_KEY) {
             console.error('RESEND_API_KEY is missing in env');
@@ -36,10 +36,10 @@ async function sendEmail({ to, subject, html, attachments }) {
         console.error('Exception sending email:', error);
         return { success: false, error: error.message };
     }
-}
+};
 
 // Send Vehicle Approval Email to Sponsor
-async function sendVehicleApprovedEmail(sponsorEmail, sponsorName, vehicleDetails) {
+const sendVehicleApprovedEmail = async (sponsorEmail, sponsorName, vehicleDetails) => {
     const { vehicleName, type, price } = vehicleDetails;
 
     const html = `
@@ -98,7 +98,7 @@ async function sendVehicleApprovedEmail(sponsorEmail, sponsorName, vehicleDetail
 }
 
 // Send Withdrawal Paid Email
-async function sendWithdrawalPaidEmail(sponsorEmail, sponsorName, payload) {
+const sendWithdrawalPaidEmail = async (sponsorEmail, sponsorName, payload) => {
     const { amount, transactionReference, date, paymentMethod, bankName } = payload;
 
     const formattedAmount = Number(amount).toLocaleString('en-IN', {
@@ -170,5 +170,6 @@ async function sendWithdrawalPaidEmail(sponsorEmail, sponsorName, payload) {
 
 module.exports = {
     sendVehicleApprovedEmail,
-    sendWithdrawalPaidEmail
+    sendWithdrawalPaidEmail,
+    sendEmail
 };
