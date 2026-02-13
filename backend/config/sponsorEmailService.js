@@ -163,7 +163,7 @@ async function sendWithdrawalPaidEmail(sponsorEmail, sponsorName, payload) {
 
     return sendEmail({
         to: sponsorEmail,
-        subject: `Payment Processed: ${formattedAmount} - RentHub`,
+        subject: `Payment Processed: ${formattedAmount} (Ref: ${transactionReference || 'N/A'}) - RentHub`,
         html: html
     });
 }
