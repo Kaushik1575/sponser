@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Toaster } from 'react-hot-toast';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import LandingPage from './pages/LandingPage';
 import Dashboard from './pages/Dashboard';
 import AddBike from './pages/AddBike';
 import MyBikes from './pages/MyBikes';
@@ -62,6 +63,7 @@ function App() {
         />
         <Routes>
           {/* Public Routes */}
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
@@ -73,7 +75,6 @@ function App() {
           {/* Protected Routes (Sponsor only) */}
           <Route element={<ProtectedRoute allowedRoles={['sponsor']} />}>
             <Route element={<Layout />}>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/add-bike" element={<AddBike />} />
               <Route path="/my-bikes" element={<MyBikes />} />
