@@ -10,6 +10,7 @@ import Bookings from './pages/Bookings';
 import Revenue from './pages/Revenue';
 import Profile from './pages/Profile';
 import Withdrawal from './pages/Withdrawal';
+import TermsConditions from './pages/TermsConditions';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -82,6 +83,7 @@ function App() {
               <Route path="/revenue" element={<Revenue />} />
               <Route path="/withdrawal" element={<Withdrawal />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/terms" element={<TermsConditions />} />
             </Route>
           </Route>
 

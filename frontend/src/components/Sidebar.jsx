@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, PlusCircle, Bike, CalendarDays, DollarSign, User, X, Banknote } from 'lucide-react';
+import { Home, PlusCircle, Bike, CalendarDays, DollarSign, User, X, Banknote, ShieldCheck } from 'lucide-react';
 
 const Sidebar = ({ onClose = () => { } }) => {
     const location = useLocation();
@@ -10,8 +10,10 @@ const Sidebar = ({ onClose = () => { } }) => {
         { path: '/my-bikes', label: 'My Bikes', icon: Bike },
         { path: '/bookings', label: 'Bookings', icon: CalendarDays },
         { path: '/revenue', label: 'Revenue', icon: DollarSign },
+
         { path: '/withdrawal', label: 'Withdrawal', icon: Banknote },
         { path: '/profile', label: 'Profile', icon: User },
+        { path: '/terms', label: 'Terms & Conditions', icon: ShieldCheck },
     ];
 
     return (
