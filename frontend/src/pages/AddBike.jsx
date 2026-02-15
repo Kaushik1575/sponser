@@ -20,6 +20,14 @@ const AddBike = () => {
     useEffect(() => {
         const fetchSponsorId = async () => {
             try {
+                // Check if user is authenticated
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    toast.error('Please login to add a vehicle');
+                    navigate('/login');
+                    return;
+                }
+
                 const response = await api.get('/sponsor/profile');
                 if (response.data && response.data.sponsor && response.data.sponsor.id) {
                     setSponsorId(response.data.sponsor.id);
@@ -29,10 +37,15 @@ const AddBike = () => {
                 }
             } catch (error) {
                 console.error("Failed to fetch sponsor ID:", error);
+                // If API call fails due to authentication, redirect to login
+                if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+                    toast.error('Please login to add a vehicle');
+                    navigate('/login');
+                }
             }
         };
         fetchSponsorId();
-    }, []);
+    }, [navigate]);
     const [files, setFiles] = useState({
         image: null,
         rc: null,

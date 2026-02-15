@@ -170,7 +170,7 @@ const sendWithdrawalPaidEmail = async (sponsorEmail, sponsorName, payload) => {
 
 // Send Welcome Email to New Sponsor
 const sendWelcomeEmail = async (sponsorEmail, sponsorName) => {
-    const frontendUrl = process.env.FRONTEND_URL || 'https://rent-hub-r.vercel.app/';
+    const frontendUrl = process.env.SPONSOR_FRONTEND_URL || 'https://sponser-seven.vercel.app';
     const addVehicleUrl = `${frontendUrl.replace(/\/$/, '')}/add-bike`;
     const loginUrl = `${frontendUrl.replace(/\/$/, '')}/login`;
 

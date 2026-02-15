@@ -70,7 +70,7 @@ const Dashboard = () => {
     }
 
     return (
-        <div className="p-6 space-y-6 bg-gray-50 min-h-screen pb-20">
+        <div className="p-4 md:p-6 space-y-6 bg-gray-50 min-h-screen pb-20">
             <h1 className="text-2xl font-bold text-gray-800">Dashboard Overview</h1>
 
             {/* Summary Cards */}
@@ -114,9 +114,9 @@ const Dashboard = () => {
 
             {/* Charts Section */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100">
                     <h2 className="text-lg font-semibold mb-4 text-gray-700">Monthly Revenue Trend</h2>
-                    <div className="h-64">
+                    <div className="h-72 md:h-80">
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={stats.revenueChart}>
                                 <defs>
@@ -135,9 +135,9 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100">
                     <h2 className="text-lg font-semibold mb-4 text-gray-700">Monthly Booking Activity</h2>
-                    <div className="h-64">
+                    <div className="h-72 md:h-80">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={stats.revenueChart}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -152,9 +152,9 @@ const Dashboard = () => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 lg:col-span-1">
+                <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 lg:col-span-1">
                     <h2 className="text-lg font-semibold mb-4 text-gray-700">Most Rented Vehicles</h2>
-                    <div className="h-64">
+                    <div className="h-72 md:h-80">
                         <ResponsiveContainer width="100%" height="100%">
                             {stats.vehicleChart && stats.vehicleChart.length > 0 ? (
                                 <PieChart>
@@ -190,7 +190,7 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 lg:col-span-2">
+                <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 lg:col-span-2">
                     <h2 className="text-lg font-semibold mb-4 text-gray-700">AI Insights</h2>
                     <div className="space-y-4">
                         <div className="p-4 bg-brand-50 border-l-4 border-brand-500 rounded-r-lg">
