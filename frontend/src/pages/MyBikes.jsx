@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { PlusCircle, Edit, Trash2, Clock, DollarSign, Calendar, Eye, X, Save, AlertTriangle } from 'lucide-react';
+import DateAvailabilityChecker from '../components/DateAvailabilityChecker';
 
 const MyBikes = () => {
     const [bikes, setBikes] = useState([]);
@@ -16,6 +17,16 @@ const MyBikes = () => {
     useEffect(() => {
         fetchBikes();
     }, []);
+
+    // Sync viewModal with updated bikes data to ensure button state reflects changes
+    useEffect(() => {
+        if (viewModal) {
+            const updatedBike = bikes.find(b => (b.id || b._id) === (viewModal.id || viewModal._id));
+            if (updatedBike) {
+                setViewModal(updatedBike);
+            }
+        }
+    }, [bikes, viewModal]);
 
     const formatRideTime = (hours) => {
         if (!hours || hours === 0) return '0h 0min';
@@ -145,7 +156,13 @@ const MyBikes = () => {
                                         <input
                                             type="checkbox"
                                             checked={bike.isAvailable || bike.is_available}
-                                            onChange={() => toggleAvailability(bike._id || bike.id, bike.isAvailable || bike.is_available, bike.type || 'bike')}
+                                            onChange={() => {
+                                                toast.error("Please check date availability in details before toggling", {
+                                                    icon: '📅',
+                                                    duration: 4000
+                                                });
+                                                setViewModal(bike);
+                                            }}
                                             className="sr-only peer"
                                         />
                                         <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none ring-0 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
@@ -251,6 +268,16 @@ const MyBikes = () => {
                                     <p className="text-gray-700">₹{viewModal.totalRevenue || 0}</p>
                                 </div>
                             </div>
+
+                            {/* Date Availability Checker - Only show for approved vehicles */}
+                            {(viewModal.status === 'approved' || viewModal.approval_status === 'approved') && (
+                                <div className="mt-6">
+                                    <DateAvailabilityChecker
+                                        vehicle={viewModal}
+                                        onAvailabilityToggle={fetchBikes}
+                                    />
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

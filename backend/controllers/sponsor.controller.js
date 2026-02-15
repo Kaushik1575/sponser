@@ -567,3 +567,107 @@ exports.uploadProfilePicture = async (req, res) => {
     }
 };
 
+/**
+ * Check Date Availability for Vehicle
+ * Checks if a vehicle has any bookings on a specific date
+ */
+exports.checkDateAvailability = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { vehicleId, vehicleType, date } = req.body;
+
+        if (!vehicleId || !vehicleType || !date) {
+            return res.status(400).json({ error: 'Vehicle ID, type, and date are required' });
+        }
+
+        // Validate vehicle type
+        if (!['bike', 'car', 'scooty'].includes(vehicleType)) {
+            return res.status(400).json({ error: 'Invalid vehicle type' });
+        }
+
+        // Determine table name
+        let tableName = 'bikes';
+        if (vehicleType === 'car') tableName = 'cars';
+        if (vehicleType === 'scooty') tableName = 'scooty';
+
+        // Verify vehicle ownership
+        const { data: vehicle, error: vehicleError } = await supabase
+            .from(tableName)
+            .select('*')
+            .eq('id', vehicleId)
+            .eq('sponsor_id', userId)
+            .single();
+
+        if (vehicleError || !vehicle) {
+            return res.status(404).json({ error: 'Vehicle not found or unauthorized' });
+        }
+
+        // Parse the selected date
+        const selectedDate = new Date(date);
+        const startOfDay = new Date(selectedDate.setHours(0, 0, 0, 0));
+        const endOfDay = new Date(selectedDate.setHours(23, 59, 59, 999));
+
+        console.log(`[CheckAvailability] Checking ${vehicleType} ${vehicleId} for date: ${date}`);
+        console.log(`[CheckAvailability] Query Range: ${startOfDay.toISOString()} to ${endOfDay.toISOString()}`);
+
+        // Check for bookings on this date
+        // supporting multiple column naming conventions (ride_start_time vs start_date)
+        const { data: bookings, error: bookingError } = await supabase
+            .from('bookings')
+            .select('*')
+            .eq('vehicle_id', vehicleId)
+            .or(`and(ride_start_time.lte.${endOfDay.toISOString()},ride_end_time.gte.${startOfDay.toISOString()}),and(start_date.lte.${endOfDay.toISOString()},end_date.gte.${startOfDay.toISOString()}),and(booking_date.gte.${startOfDay.toISOString()},booking_date.lte.${endOfDay.toISOString()})`)
+            .in('status', ['pending', 'confirmed', 'active', 'ride_started', 'ongoing']);
+
+        if (bookingError) {
+            console.error('[CheckAvailability] Database error:', bookingError);
+
+            // Fallback: Check using simple date match if complex query fails
+            // This handles cases where maybe status is different or column issues
+            const { data: fallbackBookings, error: fallbackError } = await supabase
+                .from('bookings')
+                .select('*')
+                .eq('vehicle_id', vehicleId)
+                .in('status', ['pending', 'confirmed', 'active', 'ride_started', 'ongoing']); // Fetch all active bookings for vehicle
+
+            // Manual filter in code as last resort
+            if (!fallbackError && fallbackBookings) {
+                const matchingBooking = fallbackBookings.find(b => {
+                    const start = new Date(b.ride_start_time || b.start_date || b.booking_date);
+                    const end = new Date(b.ride_end_time || b.end_date || b.booking_date || start);
+                    return start <= endOfDay && end >= startOfDay;
+                });
+
+                if (matchingBooking) {
+                    console.log('[CheckAvailability] Found booking via fallback JS filtering');
+                    return res.json({
+                        hasBooking: true,
+                        bookingDetails: matchingBooking
+                    });
+                }
+            }
+        }
+
+        // Check if any bookings found
+        if (bookings && bookings.length > 0) {
+            console.log(`[CheckAvailability] Found ${bookings.length} conflicting bookings.`);
+            // Return the first active booking
+            return res.json({
+                hasBooking: true,
+                bookingDetails: bookings[0]
+            });
+        }
+
+        console.log('[CheckAvailability] No bookings found.');
+        // No bookings found
+        res.json({
+            hasBooking: false,
+            message: 'No bookings found for this date'
+        });
+
+    } catch (error) {
+        console.error('Error checking date availability:', error);
+        res.status(500).json({ error: 'Failed to check availability' });
+    }
+};
+
