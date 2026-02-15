@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { Upload, Bike, FileText, CheckCircle, Car, Truck, ChevronLeft, Image as ImageIcon } from 'lucide-react';
+import TermsPopup from '../components/TermsPopup';
 
 const AddBike = () => {
     const navigate = useNavigate();
@@ -40,6 +41,8 @@ const AddBike = () => {
     });
     const [loading, setLoading] = useState(false);
     const [dragActive, setDragActive] = useState(false);
+    const [agreed, setAgreed] = useState(false);
+    const [showTerms, setShowTerms] = useState(false);
 
     const handleInputChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -356,6 +359,53 @@ const AddBike = () => {
                         </div>
 
                         {/* Submit Actions */}
+
+                        {/* Section 3: Terms & Agreement */}
+                        <div className="animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
+                            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-6 border border-indigo-100/50 shadow-sm hover:shadow-md transition-shadow duration-300 group">
+                                <div className="flex items-start gap-4">
+                                    <div className="p-3 bg-white rounded-lg shadow-sm text-indigo-600 shrink-0 group-hover:scale-110 transition-transform duration-300">
+                                        <FileText className="w-6 h-6" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="text-lg font-bold text-gray-800 mb-2">Sponsor Agreement</h3>
+                                        <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+                                            By adding this vehicle, you agree to comply with RentHub's policies regarding vehicle maintenance, insurance validity, and 70/30 revenue share model.
+                                        </p>
+
+                                        <div
+                                            onClick={() => setAgreed(!agreed)}
+                                            className={`
+                                                flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all duration-300 select-none
+                                                ${agreed
+                                                    ? 'bg-white border-green-500 shadow-md shadow-green-100'
+                                                    : 'bg-white/50 border-gray-200 hover:border-indigo-300 hover:bg-white'
+                                                }
+                                            `}
+                                        >
+                                            <div
+                                                onClick={() => {
+                                                    if (agreed) setAgreed(false);
+                                                    else setShowTerms(true);
+                                                }}
+                                                className={`
+                                                w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-300 shrink-0
+                                                ${agreed
+                                                        ? 'bg-green-500 border-green-500 scale-110'
+                                                        : 'bg-gray-50 border-gray-300'
+                                                    }
+                                            `}>
+                                                <CheckCircle className={`w-4 h-4 text-white transition-opacity duration-200 ${agreed ? 'opacity-100' : 'opacity-0'}`} />
+                                            </div>
+                                            <span className={`text-sm font-semibold transition-colors flex-1 ${agreed ? 'text-green-700' : 'text-gray-600'}`}>
+                                                I agree to the <button type="button" onClick={(e) => { e.stopPropagation(); setShowTerms(true); }} className="text-indigo-600 hover:text-indigo-800 underline underline-offset-2 decoration-2 decoration-indigo-200 hover:decoration-indigo-500 transition-all">Terms & Conditions</button>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="pt-6 flex items-center justify-end gap-4 border-t border-gray-100">
                             <button
                                 type="button"
@@ -366,10 +416,13 @@ const AddBike = () => {
                             </button>
                             <button
                                 type="submit"
-                                disabled={loading}
+                                disabled={loading || !agreed}
                                 className={`
-                                    relative px-8 py-3.5 rounded-xl text-white font-bold shadow-lg shadow-indigo-500/30 overflow-hidden group
-                                    ${loading ? 'bg-indigo-400 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:shadow-indigo-500/50 hover:scale-[1.02]'}
+                                    relative px-8 py-3.5 rounded-xl text-white font-bold shadow-lg overflow-hidden group
+                                    ${loading || !agreed
+                                        ? 'bg-gray-300 cursor-not-allowed shadow-none'
+                                        : 'bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:scale-[1.02]'
+                                    }
                                     transition-all duration-300
                                 `}
                             >
@@ -388,8 +441,13 @@ const AddBike = () => {
 
                     </div>
                 </form>
-            </div>
-        </div>
+                <TermsPopup
+                    isOpen={showTerms}
+                    onClose={() => setShowTerms(false)}
+                    onAccept={() => setAgreed(true)}
+                />
+            </div >
+        </div >
     );
 };
 
