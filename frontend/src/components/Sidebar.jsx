@@ -50,9 +50,9 @@ const Sidebar = ({ onClose = () => { } }) => {
                 <div className="bg-gradient-to-br from-brand-500 to-cyan-400 rounded-xl p-4 text-white">
                     <p className="text-xs font-medium opacity-80 mb-1">Need Help?</p>
                     <p className="text-sm font-semibold mb-2">Contact Support</p>
-                    <button className="text-xs bg-white/20 hover:bg-white/30 transition-colors px-3 py-1.5 rounded-lg w-full">
+                    <a href="tel:9040757683" className="block text-center text-xs bg-white/20 hover:bg-white/30 transition-colors px-3 py-1.5 rounded-lg w-full">
                         Get Support
-                    </button>
+                    </a>
                 </div>
             </div>
         </div>
