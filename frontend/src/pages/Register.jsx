@@ -77,8 +77,8 @@ const Register = () => {
             if (type === 'email') {
                 setEmailVerified(true);
                 setFormData(prev => ({ ...prev, otp: otpValue }));
-                // Auto-trigger mobile OTP after email success if phone exists
-                if (formData.phoneNumber) {
+                // Auto-trigger mobile OTP after email success if phone exists and not already verified
+                if (formData.phoneNumber && !mobileVerified) {
                     setTimeout(() => handleSendMobileOtp(), 100);
                 }
             }
