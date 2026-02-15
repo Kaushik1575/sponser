@@ -2,6 +2,7 @@ const SponsorModel = require('../models/sponsorModel');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { sendEmailOtp, sendMobileOtp, verifyOtp } = require('../utils/otpService');
+const { sendWelcomeEmail } = require('../config/sponsorEmailService');
 
 /**
  * Sponsor Registration
@@ -137,6 +138,14 @@ exports.registerSponsor = async (req, res) => {
         };
 
         await SponsorModel.createSponsorAccount(sponsorData);
+
+        // Send Welcome Email
+        try {
+            await sendWelcomeEmail(email, fullName);
+        } catch (emailError) {
+            console.error('Failed to send welcome email:', emailError);
+            // Non-blocking error
+        }
 
         res.status(201).json({
             message: 'Sponsor registration successful. You can now login.',

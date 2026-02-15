@@ -168,8 +168,146 @@ const sendWithdrawalPaidEmail = async (sponsorEmail, sponsorName, payload) => {
     });
 }
 
+// Send Welcome Email to New Sponsor
+const sendWelcomeEmail = async (sponsorEmail, sponsorName) => {
+    const frontendUrl = process.env.FRONTEND_URL || 'https://rent-hub-r.vercel.app/';
+    const addVehicleUrl = `${frontendUrl.replace(/\/$/, '')}/add-bike`;
+    const loginUrl = `${frontendUrl.replace(/\/$/, '')}/login`;
+
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Welcome to RentHub</title>
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #f4f7f6; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="min-width: 100%;">
+            <tr>
+                <td align="center" style="padding: 40px 0;">
+                    
+                    <!-- Main Container -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
+                        
+                        <!-- Header / Banner -->
+                        <tr>
+                            <td style="background-color: #1a1a2e; padding: 40px 40px; text-align: center; background-image: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);">
+                                <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700; letter-spacing: 0.5px;">RentHub</h1>
+                                <p style="color: #4cc9f0; margin: 10px 0 0; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; font-weight: 600;">Sponsor Program</p>
+                            </td>
+                        </tr>
+
+                        <!-- Body Content -->
+                        <tr>
+                            <td style="padding: 40px 40px 20px;">
+                                <h2 style="color: #333333; margin: 0 0 20px; font-size: 24px; font-weight: 600;">Welcome, ${sponsorName}! 👋</h2>
+                                <p style="color: #555555; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
+                                    We're thrilled to have you join the RentHub Partner Network. You've just taken the first step towards turning your vehicle into a passive income machine.
+                                </p>
+                                <p style="color: #555555; font-size: 16px; line-height: 1.6; margin: 0 0 30px;">
+                                    Before you start listing, here is a quick summary of how our partnership works:
+                                </p>
+                            </td>
+                        </tr>
+
+                        <!-- Info Cards (2 Columns) -->
+                        <tr>
+                            <td style="padding: 0 40px 30px;">
+                                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                                    <tr>
+                                        <td width="48%" valign="top" style="background-color: #f8f9fa; border-radius: 12px; padding: 20px; border: 1px solid #eeeeee;">
+                                            <div style="font-size: 24px; margin-bottom: 10px;">💰</div>
+                                            <h3 style="margin: 0 0 5px; font-size: 16px; color: #333;">70% Earnings</h3>
+                                            <p style="margin: 0; font-size: 14px; color: #666; line-height: 1.5;">You keep the lion's share of every booking fee.</p>
+                                        </td>
+                                        <td width="4%"></td>
+                                        <td width="48%" valign="top" style="background-color: #f8f9fa; border-radius: 12px; padding: 20px; border: 1px solid #eeeeee;">
+                                            <div style="font-size: 24px; margin-bottom: 10px;">🛠️</div>
+                                            <h3 style="margin: 0 0 5px; font-size: 16px; color: #333;">Maintenance</h3>
+                                            <p style="margin: 0; font-size: 14px; color: #666; line-height: 1.5;">You maintain the vehicle; we handle the bookings.</p>
+                                        </td>
+                                    </tr>
+                                    <tr><td height="15"></td></tr>
+                                    <tr>
+                                        <td width="48%" valign="top" style="background-color: #f8f9fa; border-radius: 12px; padding: 20px; border: 1px solid #eeeeee;">
+                                            <div style="font-size: 24px; margin-bottom: 10px;">📄</div>
+                                            <h3 style="margin: 0 0 5px; font-size: 16px; color: #333;">Documents</h3>
+                                            <p style="margin: 0; font-size: 14px; color: #666; line-height: 1.5;">Valid RC, Insurance & PUC are mandatory.</p>
+                                        </td>
+                                        <td width="4%"></td>
+                                        <td width="48%" valign="top" style="background-color: #f8f9fa; border-radius: 12px; padding: 20px; border: 1px solid #eeeeee;">
+                                            <div style="font-size: 24px; margin-bottom: 10px;">🏦</div>
+                                            <h3 style="margin: 0 0 5px; font-size: 16px; color: #333;">Fast Payouts</h3>
+                                            <p style="margin: 0; font-size: 14px; color: #666; line-height: 1.5;">Withdraw earnings directly to your bank.</p>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+
+                        <!-- CTA Button -->
+                        <tr>
+                            <td align="center" style="padding: 10px 40px 40px;">
+                                <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+                                    <tr>
+                                        <td align="center" style="border-radius: 50px; background-color: #4cc9f0;">
+                                            <a href="${addVehicleUrl}" target="_blank" style="display: inline-block; padding: 16px 36px; font-family: Helvetica, Arial, sans-serif; font-size: 16px; color: #1a1a2e; text-decoration: none; border-radius: 50px; font-weight: bold; background-color: #4cc9f0; border: 1px solid #4cc9f0;">
+                                                Add Your First Vehicle
+                                            </a>
+                                        </td>
+                                    </tr>
+                                </table>
+                                <p style="margin: 20px 0 0; color: #999; font-size: 13px;">
+                                    Please <a href="${loginUrl}" style="color: #666; text-decoration: underline;">login</a> to access your dashboard.
+                                </p>
+                            </td>
+                        </tr>
+
+                        <!-- Support Footer -->
+                        <tr>
+                            <td style="background-color: #f8f9fa; padding: 30px 40px; border-top: 1px solid #eeeeee;">
+                                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                                    <tr>
+                                        <td width="60%">
+                                            <p style="margin: 0 0 5px; font-size: 14px; font-weight: bold; color: #333;">Need Assistance?</p>
+                                            <p style="margin: 0; font-size: 13px; color: #666;">Our dedicated sponsor support team is ready to help.</p>
+                                        </td>
+                                        <td width="40%" align="right">
+                                            <div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 8px 12px; display: inline-block;">
+                                                <a href="tel:9040757683" style="text-decoration: none; color: #333; font-weight: bold; font-size: 14px;">📞 9040757683</a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                        
+                        <!-- Copyright -->
+                        <tr>
+                            <td style="text-align: center; padding: 20px; font-size: 12px; color: #aaaaaa;">
+                                &copy; ${new Date().getFullYear()} RentHub Inc. All rights reserved.
+                            </td>
+                        </tr>
+
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
+    `;
+
+    return sendEmail({
+        to: sponsorEmail,
+        subject: `Welcome to the Team, ${sponsorName}! 🚀`,
+        html: html
+    });
+};
+
 module.exports = {
     sendVehicleApprovedEmail,
     sendWithdrawalPaidEmail,
+    sendWelcomeEmail,
     sendEmail
 };
